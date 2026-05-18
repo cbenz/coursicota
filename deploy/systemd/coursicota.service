@@ -1,0 +1,22 @@
+[Unit]
+Description=coursicota web application
+Wants=network-online.target
+After=network-online.target carrefour-mcp.service
+Requires=carrefour-mcp.service
+
+[Service]
+Type=simple
+User=coursicota
+Group=coursicota
+WorkingDirectory=/home/coursicota/apps/coursicota/build
+EnvironmentFile=-/home/coursicota/etc/coursicota.env
+Environment=NODE_ENV=production
+ExecStart=/usr/bin/node index.js
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target
