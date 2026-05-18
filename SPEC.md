@@ -19,6 +19,7 @@ Faire ses courses à Carrefour de façon simplifiée et éclairée, pour pallier
 - Les tables `Lists`, `Products` et `Orders` permettent d'ouvrir les éléments depuis leur ID ou leur nom quand l'information existe, et exposent un bouton `Open` dans la colonne `Actions`
 - Une page de détail de liste qui permet d'éditer les produits, leurs quantités, et leur URL produit Carrefour, et d'ajouter l'ensemble des produits de la liste au panier Carrefour via un bouton dédié
 - Une page `Sync` qui lance une synchronisation complète locale des commandes (sans saisie de limite dans l'interface), affiche le workflow de login Carrefour et montre une progression en temps réel (étape, compteur et statut final)
+- La card `Login workflow` de la page `Sync` décrit le flux SSH `-Y` vers Chromium distant, puis la capture via `auth_capture_state`, sans étape `auth_upload`
 - L'URL du serveur MCP utilisée par l'application est configurable via variable d'environnement et affichée telle qu'utilisée dans la page `Sync`
 - L'authentification Carrefour côté application se fait en capturant une session Chrome ou Chromium déjà ouverte via CDP (`auth_capture_cdp`), pas en pilotant directement une CLI locale
 - Les listes de produits sont sauvegardées dans la base de données locale

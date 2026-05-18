@@ -172,15 +172,17 @@
       <Separator />
       <ol class="space-y-4 text-sm text-muted-foreground">
         <li class="space-y-2">
-          <strong class="text-foreground"
-            >1. Launch Chrome for manual login</strong
-          >
+          <strong class="text-foreground">1. Launch remote Chromium</strong>
           <p>In your terminal, run:</p>
           <code
             class="block break-all bg-secondary px-2 py-1 text-xs font-mono text-foreground"
           >
-            pnpm cli -- auth_login
+            pnpm cli auth_login
           </code>
+          <p>
+            The command prints an SSH `-Y` launch command for Chromium on the
+            remote server.
+          </p>
         </li>
 
         <li class="space-y-2">
@@ -193,17 +195,12 @@
         </li>
 
         <li class="space-y-2">
-          <strong class="text-foreground">3. Upload the auth state</strong>
+          <strong class="text-foreground">3. Capture the auth state</strong>
           <p>In your terminal, run:</p>
-          <p class="text-xs">
-            MCP server URL: <span class="font-mono text-foreground"
-              >{data.mcpServerUrl}</span
-            >
-          </p>
           <code
             class="block break-all bg-secondary px-2 py-1 text-xs font-mono text-foreground"
           >
-            pnpm cli auth_upload --server-url {data.mcpServerUrl}
+            pnpm cli auth_capture_state --cdp-url http://127.0.0.1:9222
           </code>
         </li>
       </ol>

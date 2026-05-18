@@ -52,7 +52,7 @@ pnpm install
 Pour un déploiement Debian, le dépôt fournit aussi `deploy/scripts/install.sh`, qui crée l'utilisateur Unix dédié, installe les paquets système requis, clone ou met à jour le dépôt sur le serveur, configure nginx et enregistre les services systemd.
 Le script peut être copié et exécuté hors d'un checkout local ; si `REPO_URL` n'est pas fourni et qu'aucune métadonnée Git locale n'est disponible, il utilise `https://github.com/cbenz/coursicota` (branche `main` si non détectée).
 Le déploiement web est configuré en HTTPS avec certificat Let's Encrypt et protégé par Basic Auth.
-Le chemin public `/mcp` réutilise le même Basic Auth et peut servir de cible pour `pnpm cli auth_upload`.
+Le chemin public `/mcp` réutilise le même Basic Auth pour les appels applicatifs.
 
 Variables nécessaires avant lancement du script d'installation :
 
@@ -86,14 +86,14 @@ Depuis `Sync` :
 2. Lancer dans un terminal :
 
 ```bash
-pnpm cli -- auth_login
+pnpm cli auth_login
 ```
 
 1. Se connecter manuellement à Carrefour dans ce navigateur.
-2. Importer l'état de session :
+2. Capturer l'état de session :
 
 ```bash
-pnpm cli auth_upload --server-url <mcp-server-url>
+pnpm cli auth_capture_state --cdp-url http://127.0.0.1:9222
 ```
 
 ## Synchroniser les commandes
