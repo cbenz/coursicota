@@ -3,72 +3,72 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
-  addItemToList,
-  createProductList,
-  deleteProductList,
-  getProductList,
-  listProductLists,
+	addItemToList,
+	createProductList,
+	deleteProductList,
+	getProductList,
+	listProductLists,
 } from "../src/lib/server/lists";
 
 describe("list storage", () => {
-  let tempDir: string;
+	let tempDir: string;
 
-  beforeEach(() => {
-    tempDir = mkdtempSync(path.join(os.tmpdir(), "coursicota-lists-"));
-    process.env.COURSICOTA_LISTS_DIR = tempDir;
-  });
+	beforeEach(() => {
+		tempDir = mkdtempSync(path.join(os.tmpdir(), "coursicota-lists-"));
+		process.env.COURSICOTA_LISTS_DIR = tempDir;
+	});
 
-  afterEach(() => {
-    rmSync(tempDir, { recursive: true, force: true });
-    delete process.env.COURSICOTA_LISTS_DIR;
-  });
+	afterEach(() => {
+		rmSync(tempDir, { recursive: true, force: true });
+		delete process.env.COURSICOTA_LISTS_DIR;
+	});
 
-  it("creates and persists a local list", () => {
-    const list = createProductList("Courses du lundi");
-    addItemToList(list.id, {
-      name: "Pâtes complètes",
-      quantity: 2,
-      productId: "1234567890",
-      productUrl: "https://www.carrefour.fr/p/pates-1234567890",
-    });
+	it("creates and persists a local list", () => {
+		const list = createProductList("Courses du lundi");
+		addItemToList(list.id, {
+			name: "Pâtes complètes",
+			quantity: 2,
+			productId: "1234567890",
+			productUrl: "https://www.carrefour.fr/p/pates-1234567890",
+		});
 
-    const stored = getProductList(list.id);
+		const stored = getProductList(list.id);
 
-    expect(stored?.name).toBe("Courses du lundi");
-    expect(stored?.items).toHaveLength(1);
-    expect(stored?.items[0]?.name).toBe("Pâtes complètes");
-    expect(listProductLists()).toHaveLength(1);
-  });
+		expect(stored?.name).toBe("Courses du lundi");
+		expect(stored?.items).toHaveLength(1);
+		expect(stored?.items[0]?.name).toBe("Pâtes complètes");
+		expect(listProductLists()).toHaveLength(1);
+	});
 
-  it("deletes a list", () => {
-    const list = createProductList("Temporaire");
+	it("deletes a list", () => {
+		const list = createProductList("Temporaire");
 
-    deleteProductList(list.id);
+		deleteProductList(list.id);
 
-    expect(getProductList(list.id)).toBeUndefined();
-  });
+		expect(getProductList(list.id)).toBeUndefined();
+	});
 
-  it("ignores duplicate products without error", () => {
-    const list = createProductList("Weekly groceries");
+	it("ignores duplicate products without error", () => {
+		const list = createProductList("Weekly groceries");
 
-    addItemToList(list.id, {
-      name: "Organic apples",
-      quantity: 2,
-      productId: "111",
-      productUrl: "https://www.carrefour.fr/p/organic-apples-111",
-    });
+		addItemToList(list.id, {
+			name: "Organic apples",
+			quantity: 2,
+			productId: "111",
+			productUrl: "https://www.carrefour.fr/p/organic-apples-111",
+		});
 
-    expect(() =>
-      addItemToList(list.id, {
-        name: "Organic apples",
-        quantity: 5,
-        productId: "111",
-        productUrl: "https://www.carrefour.fr/p/organic-apples-111",
-      }),
-    ).not.toThrow();
+		expect(() =>
+			addItemToList(list.id, {
+				name: "Organic apples",
+				quantity: 5,
+				productId: "111",
+				productUrl: "https://www.carrefour.fr/p/organic-apples-111",
+			}),
+		).not.toThrow();
 
-    const stored = getProductList(list.id);
-    expect(stored?.items).toHaveLength(1);
-    expect(stored?.items[0]?.quantity).toBe(2);
-  });
+		const stored = getProductList(list.id);
+		expect(stored?.items).toHaveLength(1);
+		expect(stored?.items[0]?.quantity).toBe(2);
+	});
 });

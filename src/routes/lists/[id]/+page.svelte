@@ -28,6 +28,10 @@
     form?.cartResult?.results?.filter((result) => !result.success) ?? [],
   );
 
+  const alreadyInCartItems = $derived(
+    form?.cartResult?.results?.filter((result) => result.alreadyInCart) ?? [],
+  );
+
   type ListProductRow = (typeof data.list.items)[number];
   const products = $derived(data.list.items);
 
@@ -190,7 +194,9 @@
             <Table.Row>
               {#each headerGroup.headers as header (header.id)}
                 <Table.Head
-                  class={header.column.id === "latestAmount" ? "text-right" : undefined}
+                  class={header.column.id === "latestAmount"
+                    ? "text-right"
+                    : undefined}
                 >
                   {#if !header.isPlaceholder}
                     <FlexRender
@@ -209,7 +215,9 @@
             <Table.Row>
               {#each row.getVisibleCells() as cell (cell.id)}
                 <Table.Cell
-                  class={cell.column.id === "latestAmount" ? "text-right" : undefined}
+                  class={cell.column.id === "latestAmount"
+                    ? "text-right"
+                    : undefined}
                 >
                   <FlexRender
                     content={cell.column.columnDef.cell}
@@ -242,9 +250,24 @@
     {#if form?.cartResult}
       <Alert variant={form.cartResult.failed > 0 ? "destructive" : "default"}>
         <AlertTitle>
-          {form.cartResult.added} added, {form.cartResult.failed} failed
+          {form.cartResult.added} added{form.cartResult.alreadyInCart > 0
+            ? `, ${form.cartResult.alreadyInCart} already in cart`
+            : ""}{form.cartResult.failed > 0
+            ? `, ${form.cartResult.failed} failed`
+            : ""}
         </AlertTitle>
         <AlertDescription>
+          {#if alreadyInCartItems.length > 0}
+            <div class="mb-3">
+              <p class="mb-1 text-sm font-medium">Products already in cart:</p>
+              <ul class="list-disc space-y-1 pl-5 text-sm">
+                {#each alreadyInCartItems as item (item.productUrl)}
+                  <li><span class="font-medium">{item.name}</span></li>
+                {/each}
+              </ul>
+            </div>
+          {/if}
+
           {#if failedCartItems.length > 0}
             <div class="mb-3">
               <p class="mb-1 text-sm font-medium">Failed products:</p>
@@ -253,7 +276,9 @@
                   <li>
                     <span class="font-medium">{failedItem.name}</span>
                     {#if failedItem.message}
-                      <span class="text-muted-foreground"> - {failedItem.message}</span>
+                      <span class="text-muted-foreground">
+                        - {failedItem.message}</span
+                      >
                     {/if}
                   </li>
                 {/each}
@@ -267,10 +292,7 @@
             target="_blank"
             class="inline"
           >
-            <button
-              type="submit"
-              class="underline underline-offset-4"
-            >
+            <button type="submit" class="underline underline-offset-4">
               Open cart on carrefour.fr
             </button>
           </form>

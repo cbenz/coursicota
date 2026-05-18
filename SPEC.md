@@ -126,7 +126,7 @@ Les tables présentant des entités métier ont des propriétés communes :
 - une liste ne peut contenir qu'une seule occurrence d'un même produit ; si un ajout tente de réinsérer un produit déjà présent, l'opération est ignorée silencieusement (pas d'erreur)
 - la table des produits de la page `/lists/[id]` inclut une colonne `Actions` avec au moins une action de suppression de la ligne produit de la liste
 - sur la page `/lists/[id]`, le clic sur `Add to Carrefour cart` demande une confirmation explicite indiquant que les produits vont être ajoutés au panier sur le site `carrefour.fr`
-- après l'action `Add to Carrefour cart` sur `/lists/[id]`, le rapport affiche les compteurs `added/failed` et liste explicitement les produits en échec (avec message d'erreur si disponible)
+- après l'action `Add to Carrefour cart` sur `/lists/[id]`, le rapport affiche les compteurs `added`/`alreadyInCart`/`failed` et liste explicitement les produits déjà dans le panier (sans message d'erreur) et les produits en vrai échec (avec message d'erreur si disponible) ; l'alerte n'est destructive que s'il y a de vrais échecs
 
 ## Icônes
 

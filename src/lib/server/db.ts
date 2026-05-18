@@ -326,9 +326,7 @@ export function listProductsByFrequency(): ProductFrequencyRow[] {
 			? String(row.last_ordered_at)
 			: undefined,
 		latestAmount:
-			typeof row.latest_amount === "number"
-				? row.latest_amount
-				: undefined,
+			typeof row.latest_amount === "number" ? row.latest_amount : undefined,
 		latestAmountCurrency: row.latest_amount_currency
 			? String(row.latest_amount_currency)
 			: undefined,
@@ -424,8 +422,7 @@ export function getLatestAmountsForProducts(
 		});
 
 		latestByIdentity.set(key, {
-			amount:
-				typeof row.unit_price === "number" ? row.unit_price : undefined,
+			amount: typeof row.unit_price === "number" ? row.unit_price : undefined,
 			currency: row.currency ? String(row.currency) : undefined,
 			orderedAt: row.ordered_at ? String(row.ordered_at) : undefined,
 		});
