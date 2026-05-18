@@ -47,4 +47,28 @@ describe("list storage", () => {
 
     expect(getProductList(list.id)).toBeUndefined();
   });
+
+  it("ignores duplicate products without error", () => {
+    const list = createProductList("Weekly groceries");
+
+    addItemToList(list.id, {
+      name: "Organic apples",
+      quantity: 2,
+      productId: "111",
+      productUrl: "https://www.carrefour.fr/p/organic-apples-111",
+    });
+
+    expect(() =>
+      addItemToList(list.id, {
+        name: "Organic apples",
+        quantity: 5,
+        productId: "111",
+        productUrl: "https://www.carrefour.fr/p/organic-apples-111",
+      }),
+    ).not.toThrow();
+
+    const stored = getProductList(list.id);
+    expect(stored?.items).toHaveLength(1);
+    expect(stored?.items[0]?.quantity).toBe(2);
+  });
 });

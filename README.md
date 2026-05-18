@@ -8,14 +8,25 @@
 - conserve une sidebar propre en mode réduit (icon), avec un header/footer composés via les composants Sidebar
 - synchronise l'historique des commandes et leurs détails depuis Carrefour dans une base locale
 - centralise tous les produits achetés dans une table triable avec fréquence d'achat
-- virtualise les lignes de la table `Products` pour garder un rendu fluide même avec de très gros volumes, avec un vrai tableau, un en-tête sticky, des colonnes alignées, des classes utilitaires standard et sans superposer les lignes
+- la table `Products` expose les colonnes `Product`, `Occurrences`, `Frequency`, `Last ordered`, `Amount`, `Quantity` (sans colonne `Actions`), avec sélection par checkbox pour les actions groupées
+- permet de filtrer les produits en temps réel (titre + plage de fréquence), de paginer le tableau (taille de page configurable) et de conserver la sélection entre les pages
+- démarre la page `Products` avec des filtres par défaut en état clear (titre vide, fréquence 0% à 100%)
+- propose un bouton `Clear filters` pour réinitialiser les filtres de la page `Products`
+- en desktop, les cards de contrôle (`Filters` sur `Products`, action groupée sur le détail commande) peuvent occuper environ 50% de la largeur
 - permet de sélectionner des lignes produits individuellement ou par plage de fréquence (slider double), puis d'ajouter la sélection en masse à une liste
-- affiche une Hover Card avec la photo d'un produit au survol de son ID ou de son nom (quand la photo est disponible)
+- affiche une Hover Card avec la photo d'un produit au survol de son ID ou de son nom (quand la photo est disponible), avec le titre complet du produit
 - permet d'ouvrir le détail de chaque commande (`/orders/{id}`)
-- permet d'ouvrir les éléments depuis leur ID ou leur nom (quand disponible) dans les tables `Lists`, `Products` et `Orders`
-- affiche un bouton `Open` dans la colonne `Actions` de ces tables pour un accès direct
+- sur les pages de détail (`/orders/[id]`, `/lists/[id]`), affiche un bouton `Back` en haut à gauche avec une flèche vers la gauche
+- dans le détail d'une commande, les lignes produits se sélectionnent par checkbox pour une action groupée `Add to list` (sans colonne `Actions`)
+- permet d'ouvrir les éléments depuis leur ID ou leur nom (quand disponible) dans les tables `Lists` et `Orders`, et depuis la colonne `Product` dans `Products`
+- affiche un bouton `Open` dans la colonne `Actions` des tables `Lists` et `Orders`
 - permet de créer, éditer et suivre des listes de courses locales
+- garantit qu'un produit n'existe qu'une seule fois par liste (un nouvel ajout du même produit est ignoré sans erreur)
 - permet d'ajouter un produit à une liste depuis les tables produits, avec choix d'une liste existante ou création immédiate d'une nouvelle liste
+- affiche une colonne `Actions` dans le détail d'une liste pour supprimer un produit de la liste
+- affiche une colonne `Amount` dans le détail d'une liste avec le prix issu de la dernière commande connue du produit, et n'affiche pas la colonne `Pack`
+- demande une confirmation avant `Add to Carrefour cart`, en précisant que les produits seront ajoutés au panier sur `carrefour.fr`
+- après `Add to Carrefour cart`, affiche un rapport détaillant les produits en échec (pas seulement le compteur)
 - propose des états visuels explicites (erreur, succès, état vide) pour chaque action importante
 - affiche la progression de synchronisation en temps réel dans `Sync` (étape en cours, commandes traitées, statut final)
 

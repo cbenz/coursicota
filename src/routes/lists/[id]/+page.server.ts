@@ -3,9 +3,11 @@ import type { Actions, PageServerLoad } from "./$types";
 import {
   deleteProductList,
   getProductList,
+  removeItemFromList,
   saveProductList,
 } from "$lib/server/lists";
 import { addToCart } from "$lib/server/carrefour-mcp";
+import { getLatestAmountsForProducts } from "$lib/server/db";
 
 export const load: PageServerLoad = async ({ params }) => {
   const list = getProductList(params.id);
@@ -13,8 +15,34 @@ export const load: PageServerLoad = async ({ params }) => {
     throw error(404, { message: "List not found" });
   }
 
+  const latestAmounts = getLatestAmountsForProducts(
+    list.items.map((item) => ({
+      name: item.name,
+      productId: item.productId,
+      productUrl: item.productUrl,
+    })),
+  );
+
+  const listItemsWithAmount = list.items.map((item) => {
+    const lookupKey = item.productId?.trim()
+      ? `id:${item.productId.trim().toLowerCase()}`
+      : item.productUrl?.trim()
+        ? `url:${item.productUrl.trim().toLowerCase()}`
+        : `name:${item.name.trim().toLowerCase()}`;
+    const latestAmount = latestAmounts.get(lookupKey);
+
+    return {
+      ...item,
+      latestAmount: latestAmount?.amount,
+      latestAmountCurrency: latestAmount?.currency,
+    };
+  });
+
   return {
-    list,
+    list: {
+      ...list,
+      items: listItemsWithAmount,
+    },
   };
 };
 
@@ -65,5 +93,26 @@ export const actions: Actions = {
       const message = err instanceof Error ? err.message : String(err);
       return fail(500, { message: `Failed to add to cart: ${message}` });
     }
+  },
+  removeItem: async ({ params, request }) => {
+    const list = getProductList(params.id);
+    if (!list) {
+      throw error(404, { message: "List not found" });
+    }
+
+    const formData = await request.formData();
+    const itemId = String(formData.get("itemId") ?? "").trim();
+
+    if (!itemId) {
+      return fail(400, { message: "Item id is required." });
+    }
+
+    const itemExists = list.items.some((item) => item.id === itemId);
+    if (!itemExists) {
+      return fail(404, { message: "List item not found." });
+    }
+
+    removeItemFromList(params.id, itemId);
+    return { success: true, message: "Product removed from list." };
   },
 };

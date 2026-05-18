@@ -73,6 +73,14 @@
         <Button type="submit" class="w-full">Run sync</Button>
       </form>
 
+      <div
+        class="rounded-md border border-dashed px-3 py-2 text-xs text-muted-foreground"
+      >
+        MCP server URL: <span class="font-mono text-foreground"
+          >{data.mcpServerUrl}</span
+        >
+      </div>
+
       <Card.Root class="border-dashed" size="sm">
         <Card.Header class="gap-2">
           <div class="flex items-center justify-between gap-3">

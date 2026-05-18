@@ -76,10 +76,7 @@
           {label}
         </button>
       {:else}
-        <span
-          {...props}
-          class={cn("block truncate font-medium", className)}
-        >
+        <span {...props} class={cn("block truncate font-medium", className)}>
           {label}
         </span>
       {/if}
@@ -94,12 +91,16 @@
     arrowClasses="bg-background"
   >
     <div class="grid gap-2">
-      <p class="truncate text-xs font-medium">{productName}</p>
+      <p class="text-xs font-medium leading-tight break-words">{productName}</p>
       {#if productId}
-        <p class="truncate text-[11px] text-muted-foreground">ID: {productId}</p>
+        <p class="truncate text-[11px] text-muted-foreground">
+          ID: {productId}
+        </p>
       {/if}
 
-      <div class="bg-muted/40 flex aspect-square items-center justify-center overflow-hidden rounded-sm border border-border">
+      <div
+        class="bg-muted/40 flex aspect-square items-center justify-center overflow-hidden rounded-sm border border-border"
+      >
         {#if loading}
           <span class="text-xs text-muted-foreground">Loading photo...</span>
         {:else if imageUrl}

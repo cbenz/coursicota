@@ -1,14 +1,14 @@
 <script lang="ts">
   import type { ColumnDef, SortingState } from "@tanstack/table-core";
   import { getCoreRowModel, getSortedRowModel } from "@tanstack/table-core";
-  import AddToListCell from "$lib/components/AddToListCell.svelte";
   import ProductHoverCardLink from "$lib/components/ProductHoverCardLink.svelte";
   import SortableHeaderButton from "$lib/components/SortableHeaderButton.svelte";
-  import { formatPercent } from "$lib/format";
+  import { formatCurrency, formatDate, formatPercent } from "$lib/format";
   import { Button } from "$lib/components/ui/button";
   import { Checkbox } from "$lib/components/ui/checkbox";
   import { Input } from "$lib/components/ui/input";
   import { Slider } from "$lib/components/ui/slider";
+  import * as Card from "$lib/components/ui/card";
   import {
     Alert,
     AlertDescription,
@@ -29,13 +29,43 @@
 
   let sorting = $state<SortingState>([]);
   let selectedKeys = $state<string[]>([]);
-  let frequencyRange = $state([10, 70]);
+  let titleFilter = $state("");
+  let frequencyRange = $state([0, 100]);
   let pageSize = $state(50);
+  const pageSizeOptions = [25, 50, 100, 200] as const;
 
   const selectionColumnWidth = 52;
 
   function toPercent(value: number): number {
     return Math.round(value * 100);
+  }
+
+  function fuzzyTitleMatch(value: string, query: string): boolean {
+    if (!query) {
+      return true;
+    }
+
+    const normalizedValue = value.toLowerCase();
+    if (normalizedValue.includes(query)) {
+      return true;
+    }
+
+    // Keep fuzzy behavior but avoid very loose matches on long queries.
+    if (query.length > 3) {
+      return false;
+    }
+
+    let queryIndex = 0;
+    for (const char of normalizedValue) {
+      if (char === query[queryIndex]) {
+        queryIndex += 1;
+        if (queryIndex === query.length) {
+          return true;
+        }
+      }
+    }
+
+    return false;
   }
 
   function getProductKey(product: ProductRow): string {
@@ -47,29 +77,27 @@
     return `name:${product.name}|pack:${product.packaging ?? ""}`;
   }
 
+  function clearFilters(): void {
+    titleFilter = "";
+    frequencyRange = [0, 100];
+    currentPage = 0;
+  }
+
+  function getColumnWidthClass(columnId: string): string {
+    if (columnId === "name") return "min-w-[30rem]";
+    if (columnId === "occurrences") return "w-28";
+    if (columnId === "orderFrequency") return "w-36";
+    if (columnId === "lastOrderedAt") return "w-44";
+    if (columnId === "latestAmount") return "w-36";
+    if (columnId === "suggestedQuantity") return "w-28";
+    return "";
+  }
+
   const columns: ColumnDef<(typeof data.products)[0]>[] = [
     {
-      accessorKey: "productId",
-      size: 180,
-      sortingFn: "alphanumeric",
-      header: ({ column }) =>
-        renderComponent(SortableHeaderButton, {
-          label: "Product ID",
-          onclick: column.getToggleSortingHandler(),
-          sorted: column.getIsSorted(),
-        }),
-      cell: ({ row }) =>
-        renderComponent(ProductHoverCardLink, {
-          label: row.original.productId ?? "-",
-          productName: row.original.name,
-          productId: row.original.productId,
-          productUrl: row.original.productUrl,
-          class: "text-primary",
-        }),
-    },
-    {
       accessorKey: "name",
-      size: 320,
+      size: 520,
+      minSize: 360,
       header: ({ column }) =>
         renderComponent(SortableHeaderButton, {
           label: "Product",
@@ -83,23 +111,6 @@
           productId: row.original.productId,
           productUrl: row.original.productUrl,
         }),
-    },
-    {
-      accessorKey: "packaging",
-      size: 140,
-      header: ({ column }) =>
-        renderComponent(SortableHeaderButton, {
-          label: "Pack",
-          onclick: column.getToggleSortingHandler(),
-          sorted: column.getIsSorted(),
-        }),
-      cell: ({ row }) => {
-        const packSnippet = createRawSnippet(() => ({
-          render: () =>
-            `<div class="truncate">${row.original.packaging ?? "-"}</div>`,
-        }));
-        return renderSnippet(packSnippet);
-      },
     },
     {
       accessorKey: "occurrences",
@@ -120,11 +131,11 @@
     },
     {
       accessorKey: "orderFrequency",
-      size: 180,
       sortingFn: "basic",
+      size: 140,
       header: ({ column }) =>
         renderComponent(SortableHeaderButton, {
-          label: "Purchase frequency",
+          label: "Frequency",
           onclick: column.getToggleSortingHandler(),
           sorted: column.getIsSorted(),
         }),
@@ -137,15 +148,62 @@
       },
     },
     {
-      accessorKey: "suggestedQuantity",
+      id: "lastOrderedAt",
+      accessorFn: (row) => row.lastOrderedAt ?? "",
+      sortingFn: (left, right, columnId) => {
+        const leftValue = (left.getValue<string>(columnId) ?? "").trim();
+        const rightValue = (right.getValue<string>(columnId) ?? "").trim();
+        return leftValue.localeCompare(rightValue);
+      },
+      size: 150,
+      header: ({ column }) =>
+        renderComponent(SortableHeaderButton, {
+          label: "Last ordered",
+          onclick: column.getToggleSortingHandler(),
+          sorted: column.getIsSorted(),
+        }),
+      cell: ({ row }) => {
+        const lastOrderedSnippet = createRawSnippet(() => ({
+          render: () => {
+            const value = row.original.lastOrderedAt;
+            return `<div class="truncate">${value ? formatDate(value) : "-"}</div>`;
+          },
+        }));
+        return renderSnippet(lastOrderedSnippet);
+      },
+    },
+    {
+      accessorKey: "latestAmount",
+      sortingFn: "basic",
       size: 140,
       header: ({ column }) =>
         renderComponent(SortableHeaderButton, {
-          label: "Suggested qty",
+          label: "Amount",
           align: "right",
           onclick: column.getToggleSortingHandler(),
           sorted: column.getIsSorted(),
         }),
+      cell: ({ row }) => {
+        const amountSnippet = createRawSnippet(() => ({
+          render: () => {
+            const amount =
+              typeof row.original.latestAmount === "number"
+                ? formatCurrency(
+                    row.original.latestAmount,
+                    row.original.latestAmountCurrency ?? "EUR",
+                  )
+                : "-";
+            return `<div class=\"text-right\">${amount}</div>`;
+          },
+        }));
+        return renderSnippet(amountSnippet);
+      },
+    },
+    {
+      accessorKey: "suggestedQuantity",
+      enableSorting: false,
+      size: 110,
+      header: () => "Quantity",
       cell: ({ row }) => {
         const qtySnippet = createRawSnippet(() => ({
           render: () =>
@@ -154,24 +212,6 @@
         return renderSnippet(qtySnippet);
       },
     },
-    {
-      id: "actions",
-      size: 320,
-      enableSorting: false,
-      header: "Actions",
-      cell: ({ row }) =>
-        renderComponent(AddToListCell, {
-          lists: data.lists,
-          action: "?/addToList",
-          openUrl: row.original.productUrl,
-          productName: row.original.name,
-          productId: row.original.productId,
-          productUrl: row.original.productUrl,
-          packaging: row.original.packaging,
-          occurrences: row.original.occurrences,
-          quantity: row.original.suggestedQuantity,
-        }),
-    },
   ];
 
   const table = createSvelteTable({
@@ -179,6 +219,10 @@
       return data.products;
     },
     columns,
+    defaultColumn: {
+      size: 150,
+      minSize: 80,
+    },
     state: {
       get sorting() {
         return sorting;
@@ -196,22 +240,36 @@
   });
 
   const rows = $derived(table.getRowModel().rows);
+  const normalizedTitleFilter = $derived(titleFilter.trim().toLowerCase());
+  const filteredRows = $derived(
+    rows.filter((row) => {
+      const frequency = toPercent(row.original.orderFrequency);
+      const matchesFrequency =
+        frequency >= frequencyMin && frequency <= frequencyMax;
+      const matchesTitle = fuzzyTitleMatch(
+        row.original.name,
+        normalizedTitleFilter,
+      );
+      return matchesFrequency && matchesTitle;
+    }),
+  );
   const productsByKey = $derived(
-    new Map(rows.map((row) => [getProductKey(row.original), row.original] as const)),
+    new Map(
+      rows.map((row) => [getProductKey(row.original), row.original] as const),
+    ),
   );
   const headerGroups = $derived(table.getHeaderGroups());
-  const leafColumns = $derived(table.getAllLeafColumns());
   const allRowKeys = $derived(rows.map((row) => getProductKey(row.original)));
   const frequencyMin = $derived(Math.min(...frequencyRange));
   const frequencyMax = $derived(Math.max(...frequencyRange));
-  const inRangeCount = $derived(
-    rows.filter((row) => {
-      const frequency = toPercent(row.original.orderFrequency);
-      return frequency >= frequencyMin && frequency <= frequencyMax;
-    }).length,
+  const filteredCount = $derived(filteredRows.length);
+  const inRangeCount = $derived(filteredRows.length);
+  const visibleRowKeys = $derived(
+    filteredRows.map((row) => getProductKey(row.original)),
   );
   const allRowsSelected = $derived(
-    allRowKeys.length > 0 && allRowKeys.every((key) => selectedKeys.includes(key)),
+    visibleRowKeys.length > 0 &&
+      visibleRowKeys.every((key) => selectedKeys.includes(key)),
   );
   const selectedCount = $derived(selectedKeys.length);
   const selectedProducts = $derived(
@@ -232,14 +290,12 @@
     ),
   );
 
-  const totalColumnWidth = $derived(
-    selectionColumnWidth + leafColumns.reduce((sum, column) => sum + column.getSize(), 0),
-  );
-
   function toggleRowSelection(product: ProductRow, nextChecked: boolean): void {
     const key = getProductKey(product);
     if (nextChecked) {
-      selectedKeys = selectedKeys.includes(key) ? selectedKeys : [...selectedKeys, key];
+      selectedKeys = selectedKeys.includes(key)
+        ? selectedKeys
+        : [...selectedKeys, key];
       return;
     }
 
@@ -248,26 +304,11 @@
 
   function toggleAllRows(nextChecked: boolean): void {
     if (nextChecked) {
-      selectedKeys = [...allRowKeys];
+      selectedKeys = Array.from(new Set([...selectedKeys, ...visibleRowKeys]));
       return;
     }
 
-    selectedKeys = [];
-  }
-
-  function selectRowsInFrequencyRange(): void {
-    const keysInRange = rows
-      .filter((row) => {
-        const frequency = toPercent(row.original.orderFrequency);
-        return frequency >= frequencyMin && frequency <= frequencyMax;
-      })
-      .map((row) => getProductKey(row.original));
-
-    selectedKeys = Array.from(new Set([...selectedKeys, ...keysInRange]));
-  }
-
-  function clearSelection(): void {
-    selectedKeys = [];
+    selectedKeys = selectedKeys.filter((key) => !visibleRowKeys.includes(key));
   }
 
   $effect(() => {
@@ -279,13 +320,24 @@
   });
 
   let currentPage = $state(0);
-  const totalPages = $derived(Math.max(1, Math.ceil(rows.length / pageSize)));
-  const paginatedRows = $derived(rows.slice(currentPage * pageSize, (currentPage + 1) * pageSize));
+  const totalPages = $derived(
+    Math.max(1, Math.ceil(filteredRows.length / pageSize)),
+  );
+  const paginatedRows = $derived(
+    filteredRows.slice(currentPage * pageSize, (currentPage + 1) * pageSize),
+  );
 
   $effect(() => {
-    // Reset to first page when rows change (e.g. sorting)
-    void rows;
+    // Reset to first page when filtered rows change.
+    void filteredRows;
     currentPage = 0;
+  });
+
+  $effect(() => {
+    const maxPage = Math.max(0, totalPages - 1);
+    if (currentPage > maxPage) {
+      currentPage = maxPage;
+    }
   });
 </script>
 
@@ -309,10 +361,27 @@
   {/if}
 
   {#if data.products.length > 0}
-    <div class="rounded-md border p-4">
-      <div class="grid gap-4 lg:grid-cols-[minmax(0,420px)_minmax(0,1fr)] lg:items-end">
+    <Card.Root class="w-full lg:w-1/2">
+      <Card.Header>
+        <Card.Title>Filters</Card.Title>
+        <Card.Description>
+          Search by title and frequency. Results update while you type.
+        </Card.Description>
+      </Card.Header>
+      <Card.Content class="grid gap-4">
         <div class="grid gap-2">
-          <p class="text-sm font-medium">Frequency range selection</p>
+          <label class="text-sm font-medium" for="products-title-filter"
+            >Title</label
+          >
+          <Input
+            id="products-title-filter"
+            placeholder="Search products..."
+            bind:value={titleFilter}
+          />
+        </div>
+
+        <div class="grid gap-2">
+          <p class="text-sm font-medium">Frequency</p>
           <Slider
             type="multiple"
             bind:value={frequencyRange}
@@ -322,98 +391,154 @@
             class="max-w-md"
           />
           <p class="text-xs text-muted-foreground">
-            Range: {frequencyMin}% to {frequencyMax}% ({inRangeCount} products in range)
+            Range: {frequencyMin}% to {frequencyMax}% ({inRangeCount} products)
           </p>
-          <div class="flex flex-wrap gap-2">
-            <Button type="button" variant="outline" size="sm" onclick={selectRowsInFrequencyRange}>
-              Select range
-            </Button>
-            <Button type="button" variant="outline" size="sm" onclick={() => toggleAllRows(true)}>
-              Select all
-            </Button>
-            <Button type="button" variant="outline" size="sm" onclick={clearSelection}>
-              Clear selection
-            </Button>
-          </div>
         </div>
+      </Card.Content>
+      <Card.Footer>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onclick={clearFilters}
+        >
+          Clear filters
+        </Button>
+      </Card.Footer>
+    </Card.Root>
 
-        <form method="POST" action="?/addSelectionToList" class="grid gap-2 sm:grid-cols-[minmax(0,220px)_minmax(0,220px)_auto] sm:items-end">
-          <input type="hidden" name="selectedItems" value={selectedItemsPayload} />
-
-          <div class="grid gap-1">
-            <label class="text-xs font-medium" for="bulk-list-id">Target list</label>
-            <select
-              id="bulk-list-id"
-              name="listId"
-              class="h-9 rounded-md border border-input bg-background px-2 text-sm"
-            >
-              <option value="">Select list</option>
-              {#each data.lists as list (list.id)}
-                <option value={list.id}>{list.name}</option>
-              {/each}
-            </select>
-          </div>
-
-          <div class="grid gap-1">
-            <label class="text-xs font-medium" for="bulk-new-list">or create list</label>
-            <Input id="bulk-new-list" name="newListName" placeholder="New list name" class="h-9" />
-          </div>
-
-          <Button type="submit" size="sm" disabled={selectedCount === 0}>
-            Add {selectedCount} selected
-          </Button>
-        </form>
-      </div>
-    </div>
-
-    <div class="rounded-md border">
-      <Table.Root class="w-max min-w-full">
-        <Table.Header class="bg-background">
-          {#each headerGroups as headerGroup (headerGroup.id)}
-            <Table.Row
-              class="border-0 bg-background"
-              style={`display: flex; width: ${totalColumnWidth}px; min-width: 100%;`}
-            >
-              <Table.Head
-                class="border-b bg-background px-2 py-2 text-center"
-                style={`width: ${selectionColumnWidth}px; min-width: ${selectionColumnWidth}px; max-width: ${selectionColumnWidth}px;`}
-              >
-                <Checkbox
-                  checked={allRowsSelected}
-                  indeterminate={!allRowsSelected && selectedCount > 0}
-                  onclick={() => toggleAllRows(!allRowsSelected)}
-                />
-              </Table.Head>
-
-              {#each headerGroup.headers as header (header.id)}
-                <Table.Head
-                  class={`border-b bg-background px-2 py-2 ${header.column.id === "suggestedQuantity" ? "text-right" : "text-left"}`}
-                  style={`width: ${header.getSize()}px; min-width: ${header.getSize()}px; max-width: ${header.getSize()}px;`}
-                >
-                  {#if !header.isPlaceholder}
-                    <FlexRender
-                      content={header.column.columnDef.header}
-                      context={header.getContext()}
-                    />
-                  {/if}
-                </Table.Head>
-              {/each}
-            </Table.Row>
-          {/each}
-        </Table.Header>
-      </Table.Root>
-
-      <div class="overflow-auto">
-        <Table.Root class="w-max min-w-full">
-          <Table.Body
-            class="block"
-            style={`display: block; width: ${totalColumnWidth}px; min-width: 100%;`}
+    {#if selectedCount > 0}
+      <Card.Root>
+        <Card.Header>
+          <Card.Title>Bulk add to list</Card.Title>
+          <Card.Description>
+            {selectedCount} selected product{selectedCount > 1 ? "s" : ""}.
+          </Card.Description>
+        </Card.Header>
+        <Card.Content>
+          <form
+            method="POST"
+            action="?/addSelectionToList"
+            class="grid gap-2 sm:grid-cols-2 sm:items-end"
           >
+            <input
+              type="hidden"
+              name="selectedItems"
+              value={selectedItemsPayload}
+            />
+
+            <div class="grid gap-1">
+              <label class="text-xs font-medium" for="bulk-list-id"
+                >Target list</label
+              >
+              <select
+                id="bulk-list-id"
+                name="listId"
+                class="h-9 rounded-md border border-input bg-background px-2 text-sm"
+              >
+                <option value="">Select list</option>
+                {#each data.lists as list (list.id)}
+                  <option value={list.id}>{list.name}</option>
+                {/each}
+              </select>
+            </div>
+
+            <div class="grid gap-1">
+              <label class="text-xs font-medium" for="bulk-new-list"
+                >or create list</label
+              >
+              <Input
+                id="bulk-new-list"
+                name="newListName"
+                placeholder="New list name"
+                class="h-9"
+              />
+            </div>
+
+            <Button
+              type="submit"
+              size="sm"
+              class="sm:col-span-2 sm:justify-self-start"
+            >
+              Add to list
+            </Button>
+          </form>
+        </Card.Content>
+      </Card.Root>
+    {/if}
+
+    <div class="rounded-md border overflow-hidden">
+      <div
+        class="flex flex-wrap items-center justify-between gap-3 border-b px-3 py-2"
+      >
+        <p class="text-sm text-muted-foreground">
+          {filteredCount} / {rows.length} products{#if totalPages > 1}
+            · page {currentPage + 1} / {totalPages}{/if}
+        </p>
+        <div class="flex items-center gap-2 text-sm">
+          <label class="text-muted-foreground" for="products-page-size"
+            >Rows per page</label
+          >
+          <select
+            id="products-page-size"
+            class="h-8 rounded-md border border-input bg-background px-2 text-sm"
+            value={String(pageSize)}
+            onchange={(event) => {
+              const value = Number.parseInt(
+                (event.currentTarget as HTMLSelectElement).value,
+                10,
+              );
+              if (Number.isFinite(value) && value > 0) {
+                pageSize = value;
+                currentPage = 0;
+              }
+            }}
+          >
+            {#each pageSizeOptions as option (option)}
+              <option value={option}>{option}</option>
+            {/each}
+          </select>
+        </div>
+      </div>
+
+      <div class="overflow-x-auto">
+        <Table.Root class="min-w-full">
+          <Table.Header class="bg-background">
+            {#each headerGroups as headerGroup (headerGroup.id)}
+              <Table.Row class="border-0 bg-background">
+                <Table.Head
+                  class="border-b bg-background px-2 py-2 text-center"
+                  style={`width: ${selectionColumnWidth}px; min-width: ${selectionColumnWidth}px; max-width: ${selectionColumnWidth}px;`}
+                >
+                  <Checkbox
+                    checked={allRowsSelected}
+                    indeterminate={!allRowsSelected && selectedCount > 0}
+                    onCheckedChange={(checked) =>
+                      toggleAllRows(checked === true)}
+                  />
+                </Table.Head>
+
+                {#each headerGroup.headers as header (header.id)}
+                  <Table.Head
+                    class={`border-b bg-background px-2 py-2 ${getColumnWidthClass(header.column.id)} ${header.column.id === "suggestedQuantity" || header.column.id === "latestAmount" ? "text-right" : "text-left"}`}
+                  >
+                    {#if !header.isPlaceholder}
+                      <FlexRender
+                        content={header.column.columnDef.header}
+                        context={header.getContext()}
+                      />
+                    {/if}
+                  </Table.Head>
+                {/each}
+              </Table.Row>
+            {/each}
+          </Table.Header>
+
+          <Table.Body>
             {#each paginatedRows as row (row.id)}
               {@const rowKey = getProductKey(row.original)}
               <Table.Row
                 class={`border-b ${selectedKeys.includes(rowKey) ? "bg-muted/40" : ""}`}
-                style={`display: flex; width: ${totalColumnWidth}px; min-width: 100%;`}
               >
                 <Table.Cell
                   class="px-2 py-2 text-center"
@@ -421,14 +546,14 @@
                 >
                   <Checkbox
                     checked={selectedKeys.includes(rowKey)}
-                    onclick={() => toggleRowSelection(row.original, !selectedKeys.includes(rowKey))}
+                    onCheckedChange={(checked) =>
+                      toggleRowSelection(row.original, checked === true)}
                   />
                 </Table.Cell>
 
                 {#each row.getVisibleCells() as cell (cell.id)}
                   <Table.Cell
-                    class={`truncate px-2 py-2 ${cell.column.id === "suggestedQuantity" ? "text-right" : "text-left"}`}
-                    style={`width: ${cell.column.getSize()}px; min-width: ${cell.column.getSize()}px; max-width: ${cell.column.getSize()}px;`}
+                    class={`truncate px-2 py-2 ${getColumnWidthClass(cell.column.id)} ${cell.column.id === "suggestedQuantity" || cell.column.id === "latestAmount" ? "text-right" : "text-left"}`}
                   >
                     <FlexRender
                       content={cell.column.columnDef.cell}
@@ -442,15 +567,14 @@
         </Table.Root>
       </div>
 
-      <div class="flex items-center justify-between border-t pt-3">
-        <p class="text-sm text-muted-foreground">
-          {rows.length} products — page {currentPage + 1} / {totalPages}
-        </p>
+      <div class="flex items-center justify-end border-t px-3 py-2">
         <div class="flex items-center gap-2">
           <Button
             variant="outline"
             size="sm"
-            onclick={() => { currentPage = Math.max(0, currentPage - 1); }}
+            onclick={() => {
+              currentPage = Math.max(0, currentPage - 1);
+            }}
             disabled={currentPage === 0}
           >
             Previous
@@ -458,7 +582,9 @@
           <Button
             variant="outline"
             size="sm"
-            onclick={() => { currentPage = Math.min(totalPages - 1, currentPage + 1); }}
+            onclick={() => {
+              currentPage = Math.min(totalPages - 1, currentPage + 1);
+            }}
             disabled={currentPage >= totalPages - 1}
           >
             Next

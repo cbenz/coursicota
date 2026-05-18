@@ -26,6 +26,33 @@ const productListSchema = z.object({
   items: z.array(productListItemSchema),
 });
 
+function normalizeIdentityValue(value: string | undefined): string | undefined {
+  const normalized = value?.trim();
+  if (!normalized) {
+    return undefined;
+  }
+
+  return normalized.toLowerCase();
+}
+
+function getItemIdentity(item: {
+  name: string;
+  productId?: string;
+  productUrl?: string;
+}): string {
+  const productId = normalizeIdentityValue(item.productId);
+  if (productId) {
+    return `id:${productId}`;
+  }
+
+  const productUrl = normalizeIdentityValue(item.productUrl);
+  if (productUrl) {
+    return `url:${productUrl}`;
+  }
+
+  return `name:${normalizeIdentityValue(item.name) ?? ""}`;
+}
+
 function getListPath(id: string): string {
   return path.join(getListsDir(), `${id}.json`);
 }
@@ -102,6 +129,16 @@ export function addItemToList(
   const list = getProductList(listId);
   if (!list) {
     throw new Error("List not found");
+  }
+
+  const targetIdentity = getItemIdentity(item);
+  const alreadyExists = list.items.some(
+    (existingItem) => getItemIdentity(existingItem) === targetIdentity,
+  );
+
+  // Keep list items deduplicated: re-adding an existing product is a no-op.
+  if (alreadyExists) {
+    return list;
   }
 
   list.items.push({

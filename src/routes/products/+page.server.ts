@@ -4,6 +4,7 @@ import { listProductsByFrequency } from "$lib/server/db";
 import {
   addItemToList,
   createProductList,
+  getProductList,
   listProductLists,
 } from "$lib/server/lists";
 import { ensurePositiveInteger } from "$lib/server/utils";
@@ -37,7 +38,9 @@ export const actions: Actions = {
     }
 
     try {
-      addItemToList(targetListId, {
+      const previousCount = getProductList(targetListId)?.items.length ?? 0;
+
+      const updatedList = addItemToList(targetListId, {
         name,
         quantity: ensurePositiveInteger(Number(formData.get("quantity") ?? 1)),
         productId: String(formData.get("productId") ?? "").trim() || undefined,
@@ -48,6 +51,11 @@ export const actions: Actions = {
           Number.parseInt(String(formData.get("occurrences") ?? ""), 10) ||
           undefined,
       });
+
+      if (updatedList.items.length === previousCount) {
+        return { success: true, message: "Product is already in this list." };
+      }
+
       return { success: true, message: "Product added to list." };
     } catch (error) {
       return fail(500, {
@@ -99,7 +107,9 @@ export const actions: Actions = {
           continue;
         }
 
-        addItemToList(targetListId, {
+        const previousCount = getProductList(targetListId)?.items.length ?? 0;
+
+        const updatedList = addItemToList(targetListId, {
           name,
           quantity: ensurePositiveInteger(Number(item.quantity ?? 1)),
           productId: String(item.productId ?? "").trim() || undefined,
@@ -109,7 +119,9 @@ export const actions: Actions = {
             Number.parseInt(String(item.occurrences ?? ""), 10) || undefined,
         });
 
-        addedCount += 1;
+        if (updatedList.items.length > previousCount) {
+          addedCount += 1;
+        }
       }
 
       if (addedCount === 0) {
