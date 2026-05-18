@@ -1,6 +1,6 @@
 import { fail } from "@sveltejs/kit";
 import type { Actions, PageServerLoad } from "./$types";
-import { listProductsByFrequency } from "$lib/server/db";
+import { listOrderDates, listProductOccurrencesByOrder } from "$lib/server/db";
 import {
 	addItemToList,
 	createProductList,
@@ -11,7 +11,8 @@ import { ensurePositiveInteger } from "$lib/server/utils";
 
 export const load: PageServerLoad = async () => {
 	return {
-		products: listProductsByFrequency(),
+		orderDates: listOrderDates(),
+		productOccurrences: listProductOccurrencesByOrder(),
 		lists: listProductLists().map((list) => ({ id: list.id, name: list.name })),
 	};
 };

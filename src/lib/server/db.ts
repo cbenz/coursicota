@@ -4,6 +4,7 @@ import type {
 	OrderProduct,
 	OrderStats,
 } from "$lib/types/carrefour";
+import type { ProductFrequencyRow } from "$lib/types/products";
 import { getDatabasePath } from "./paths";
 
 let database: Database.Database | undefined;
@@ -252,18 +253,82 @@ export function getStoredOrderById(orderId: string): OrderDetails | undefined {
 	};
 }
 
-export type ProductFrequencyRow = {
+export type OrderDateRow = {
+	orderId: string;
+	orderedAt: string;
+};
+
+export type ProductOccurrenceRow = {
+	orderId: string;
+	orderedAt: string;
 	productId?: string;
 	productUrl?: string;
 	name: string;
 	packaging?: string;
-	occurrences: number;
-	orderFrequency: number;
-	lastOrderedAt?: string;
-	latestAmount?: number;
-	latestAmountCurrency?: string;
-	suggestedQuantity: number;
+	quantity?: number;
+	unitPrice?: number;
+	currency?: string;
 };
+
+export function listOrderDates(): OrderDateRow[] {
+	const db = getDatabase();
+	const rows = db
+		.prepare(
+			`SELECT id AS order_id, COALESCE(ordered_at, synced_at) AS ordered_at FROM orders`,
+		)
+		.all() as Record<string, unknown>[];
+
+	return rows
+		.filter(
+			(row) =>
+				typeof row.order_id === "string" && typeof row.ordered_at === "string",
+		)
+		.map((row) => ({
+			orderId: String(row.order_id),
+			orderedAt: String(row.ordered_at),
+		}));
+}
+
+export function listProductOccurrencesByOrder(): ProductOccurrenceRow[] {
+	const db = getDatabase();
+	const rows = db
+		.prepare(
+			`
+				SELECT
+					order_products.order_id,
+					COALESCE(orders.ordered_at, orders.synced_at) AS ordered_at,
+					order_products.product_id,
+					order_products.url,
+					order_products.name,
+					order_products.packaging,
+					order_products.quantity,
+					order_products.unit_price,
+					order_products.currency
+				FROM order_products
+				LEFT JOIN orders ON orders.id = order_products.order_id
+				ORDER BY COALESCE(orders.ordered_at, orders.synced_at) DESC
+			`,
+		)
+		.all() as Record<string, unknown>[];
+
+	return rows
+		.filter(
+			(row) =>
+				typeof row.order_id === "string" && typeof row.ordered_at === "string",
+		)
+		.map((row) => ({
+			orderId: String(row.order_id),
+			orderedAt: String(row.ordered_at),
+			productId: row.product_id ? String(row.product_id) : undefined,
+			productUrl: row.url ? String(row.url) : undefined,
+			name: String(row.name),
+			packaging: row.packaging ? String(row.packaging) : undefined,
+			quantity: typeof row.quantity === "number" ? row.quantity : undefined,
+			unitPrice:
+				typeof row.unit_price === "number" ? row.unit_price : undefined,
+			currency: row.currency ? String(row.currency) : undefined,
+		}));
+}
 
 export function listProductsByFrequency(): ProductFrequencyRow[] {
 	const db = getDatabase();

@@ -6,14 +6,20 @@
 
 - affiche une navigation simple avec 4 sections : `Products`, `Orders`, `Lists`, `Sync`
 - conserve une sidebar propre en mode réduit (icon), avec un header/footer composés via les composants Sidebar
+- ferme automatiquement la sidebar en mode mobile après sélection d'un item de navigation
 - synchronise l'historique des commandes et leurs détails depuis Carrefour dans une base locale
 - centralise tous les produits achetés dans une table triable avec fréquence d'achat
 - la table `Products` expose les colonnes `Product`, `Occurrences`, `Frequency`, `Last ordered`, `Amount`, `Quantity` (sans colonne `Actions`), avec sélection par checkbox pour les actions groupées
-- permet de filtrer les produits en temps réel (titre + plage de fréquence), de paginer le tableau (taille de page configurable) et de conserver la sélection entre les pages
-- démarre la page `Products` avec des filtres par défaut en état clear (titre vide, fréquence 0% à 100%)
+- permet de filtrer les produits en temps réel (fenêtre temporelle + titre + plage de fréquence), de paginer le tableau (taille de page configurable) et de conserver la sélection entre les pages
+- recalcule les produits, occurrences, fréquence, date de dernière commande et montant en fonction de la période sélectionnée (exemples: 1 an, 2 dernières années)
+- normalise la recherche produit pour ignorer accents, ligatures (`oe`/`œ`) et apostrophes (`pims`/`pim's`)
+- démarre la page `Products` avec des filtres par défaut en état clear (période toutes les commandes, titre vide, fréquence 0% à 100%)
 - propose un bouton `Clear filters` pour réinitialiser les filtres de la page `Products`
 - en desktop, les cards de contrôle (`Filters` sur `Products`, action groupée sur le détail commande) peuvent occuper environ 50% de la largeur
 - permet de sélectionner des lignes produits individuellement ou par plage de fréquence (slider double), puis d'ajouter la sélection en masse à une liste
+- sur la card d'ajout groupé de `Products`, si une seule liste existe elle est pré-sélectionnée automatiquement
+- sur `Products`, en desktop la card d'ajout groupé s'affiche à droite de la card de filtres (50/50), et en mobile les cards restent empilées
+- dans la card d'ajout groupé, le champ de création de liste est sur sa propre ligne et sa saisie désélectionne automatiquement la liste choisie dans le select
 - affiche une Hover Card avec la photo d'un produit au survol de son ID ou de son nom (quand la photo est disponible), avec le titre complet du produit
 - permet d'ouvrir le détail de chaque commande (`/orders/{id}`)
 - sur les pages de détail (`/orders/[id]`, `/lists/[id]`), affiche un bouton `Back` en haut à gauche avec une flèche vers la gauche

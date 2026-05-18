@@ -53,6 +53,7 @@ Faire ses courses à Carrefour de façon simplifiée et éclairée, pour pallier
   - Lists
   - Sync
 - l'item de navigation est "actif" lorsqu'on est sur la page correspondante
+- en mode mobile, un clic sur un item de navigation ferme automatiquement la sidebar
 - lorsqu'on est sur une page de type détails (e.g. `/lists/[id]` pour `/lists` ou `/orders/[id]` pour `/orders`) :
   - l'item de navigation parent reste actif
   - un bouton `Back` dans le header de la page permet de revenir à la liste parente, présenté tout en haut à gauche de la page, avec une icône de flèche pointant vers la gauche (icône Lucide)
@@ -80,13 +81,23 @@ Les tables présentant des entités métier ont des propriétés communes :
 - la table a une toute première colonne présentant des checkboxes permettant de sélectionner des produits afin d'y appliquer une action groupée d'ajout à une liste de courses
 - au-dessus de la table, une première card permet de filtrer les produits :
   - en desktop, cette card de filtres peut être affichée sur environ la moitié de la largeur disponible
-  - par titre : champ input text (fuzzy search)
+  - par période : fenêtre temporelle prédéfinie (e.g. toutes les commandes, 1 an, 2 dernières années) ; seuls les produits issus des commandes de cette période sont affichés
+  - pour la période sélectionnée, la fréquence d'achat, les occurrences, la date de dernière commande et le montant affiché sont recalculés à partir des commandes de cette période
+  - par titre : champ input text (fuzzy search) avec recherche normalisée
+    - les accents sont ignorés
+    - les ligatures sont normalisées (e.g. `œ` et `oe` sont équivalents)
+    - les apostrophes simples et typographiques sont ignorées (e.g. `pims` et `pim's` sont équivalents)
   - par fréquence : slider double avec bornes min/max
-  - par défaut, les filtres sont dans l'état `clear` : titre vide et plage de fréquence `0%` à `100%`
+  - par défaut, les filtres sont dans l'état `clear` : période `toutes les commandes`, titre vide et plage de fréquence `0%` à `100%`
   - un bouton `Clear filters` réinitialise les filtres pour réafficher tous les produits
   - les lignes de la table se mettent à jour après modification des filtres en temps réel (search as you type)
 - lorsqu'au moins une ligne produit est sélectionnée, une seconde card distincte apparaît au-dessus de la table et propose une action groupée d'ajout à une liste de courses :
+  - en desktop, la card de filtres et la card d'action groupée sont affichées côte à côte, chacune sur environ la moitié de la largeur, avec la card d'action à droite
+  - en mobile, ces deux cards sont affichées l'une au-dessus de l'autre
   - un select permet de choisir une liste existante ou de créer une nouvelle liste à la volée
+  - si une seule liste existe, elle est pré-sélectionnée automatiquement dans le select
+  - le champ de création de liste à la volée est affiché sur sa propre ligne
+  - dès qu'un utilisateur saisit un nom dans ce champ, la liste sélectionnée dans le select est automatiquement désélectionnée
   - le bouton `Add to list` est présenté sur sa propre ligne, sous les champs de sélection
   - un bouton "Add to list" applique l'action et affiche un feedback de succès ou d'erreur
 

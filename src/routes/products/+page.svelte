@@ -2,6 +2,11 @@
   import type { ColumnDef, SortingState } from "@tanstack/table-core";
   import { getCoreRowModel, getSortedRowModel } from "@tanstack/table-core";
   import ProductHoverCardLink from "$lib/components/ProductHoverCardLink.svelte";
+  import {
+    aggregateProductsByOrderWindow,
+    normalizeSearchText,
+  } from "$lib/products";
+  import type { ProductFrequencyRow } from "$lib/types/products";
   import SortableHeaderButton from "$lib/components/SortableHeaderButton.svelte";
   import { formatCurrency, formatDate, formatPercent } from "$lib/format";
   import { Button } from "$lib/components/ui/button";
@@ -25,10 +30,21 @@
 
   let { data, form } = $props();
 
-  type ProductRow = (typeof data.products)[0];
+  type ProductRow = ProductFrequencyRow;
+  type TimeWindowKey = "all" | "1y" | "2y" | "3y";
+
+  const timeWindowOptions: Array<{ key: TimeWindowKey; label: string }> = [
+    { key: "all", label: "All orders" },
+    { key: "1y", label: "Last 1 year" },
+    { key: "2y", label: "Last 2 years" },
+    { key: "3y", label: "Last 3 years" },
+  ];
 
   let sorting = $state<SortingState>([]);
   let selectedKeys = $state<string[]>([]);
+  let timeWindow = $state<TimeWindowKey>("all");
+  let bulkListId = $state("");
+  let bulkNewListName = $state("");
   let titleFilter = $state("");
   let frequencyRange = $state([0, 100]);
   let pageSize = $state(50);
@@ -41,11 +57,11 @@
   }
 
   function fuzzyTitleMatch(value: string, query: string): boolean {
+    const normalizedValue = normalizeSearchText(value);
     if (!query) {
       return true;
     }
 
-    const normalizedValue = value.toLowerCase();
     if (normalizedValue.includes(query)) {
       return true;
     }
@@ -77,7 +93,27 @@
     return `name:${product.name}|pack:${product.packaging ?? ""}`;
   }
 
+  function getWindowStartIso(window: TimeWindowKey): string | undefined {
+    if (window === "all") {
+      return undefined;
+    }
+
+    const now = new Date();
+    const years =
+      window === "1y"
+        ? 1
+        : window === "2y"
+          ? 2
+          : window === "3y"
+            ? 3
+            : 0;
+    const start = new Date(now);
+    start.setUTCFullYear(start.getUTCFullYear() - years);
+    return start.toISOString();
+  }
+
   function clearFilters(): void {
+    timeWindow = "all";
     titleFilter = "";
     frequencyRange = [0, 100];
     currentPage = 0;
@@ -93,7 +129,16 @@
     return "";
   }
 
-  const columns: ColumnDef<(typeof data.products)[0]>[] = [
+  const windowStartIso = $derived(getWindowStartIso(timeWindow));
+  const aggregatedProducts = $derived(
+    aggregateProductsByOrderWindow({
+      orderDates: data.orderDates,
+      occurrences: data.productOccurrences,
+      windowStartIso,
+    }),
+  );
+
+  const columns: ColumnDef<ProductRow>[] = [
     {
       accessorKey: "name",
       size: 520,
@@ -216,7 +261,7 @@
 
   const table = createSvelteTable({
     get data() {
-      return data.products;
+      return aggregatedProducts;
     },
     columns,
     defaultColumn: {
@@ -240,7 +285,7 @@
   });
 
   const rows = $derived(table.getRowModel().rows);
-  const normalizedTitleFilter = $derived(titleFilter.trim().toLowerCase());
+  const normalizedTitleFilter = $derived(normalizeSearchText(titleFilter));
   const filteredRows = $derived(
     rows.filter((row) => {
       const frequency = toPercent(row.original.orderFrequency);
@@ -276,6 +321,9 @@
     selectedKeys
       .map((key) => productsByKey.get(key))
       .filter((product): product is ProductRow => Boolean(product)),
+  );
+  const singleAvailableListId = $derived(
+    data.lists.length === 1 ? data.lists[0]?.id ?? "" : "",
   );
   const selectedItemsPayload = $derived(
     JSON.stringify(
@@ -326,6 +374,7 @@
   const paginatedRows = $derived(
     filteredRows.slice(currentPage * pageSize, (currentPage + 1) * pageSize),
   );
+  const hasAnyProducts = $derived(data.productOccurrences.length > 0);
 
   $effect(() => {
     // Reset to first page when filtered rows change.
@@ -337,6 +386,26 @@
     const maxPage = Math.max(0, totalPages - 1);
     if (currentPage > maxPage) {
       currentPage = maxPage;
+    }
+  });
+
+  $effect(() => {
+    const availableListIds = new Set(data.lists.map((list) => list.id));
+    const hasNewListName = bulkNewListName.trim().length > 0;
+
+    if (!availableListIds.has(bulkListId)) {
+      bulkListId = hasNewListName ? "" : singleAvailableListId;
+      return;
+    }
+
+    if (!bulkListId && singleAvailableListId && !hasNewListName) {
+      bulkListId = singleAvailableListId;
+    }
+  });
+
+  $effect(() => {
+    if (bulkNewListName.trim().length > 0 && bulkListId) {
+      bulkListId = "";
     }
   });
 </script>
@@ -360,112 +429,124 @@
     </Alert>
   {/if}
 
-  {#if data.products.length > 0}
-    <Card.Root class="w-full lg:w-1/2">
-      <Card.Header>
-        <Card.Title>Filters</Card.Title>
-        <Card.Description>
-          Search by title and frequency. Results update while you type.
-        </Card.Description>
-      </Card.Header>
-      <Card.Content class="grid gap-4">
-        <div class="grid gap-2">
-          <label class="text-sm font-medium" for="products-title-filter"
-            >Title</label
-          >
-          <Input
-            id="products-title-filter"
-            placeholder="Search products..."
-            bind:value={titleFilter}
-          />
-        </div>
-
-        <div class="grid gap-2">
-          <p class="text-sm font-medium">Frequency</p>
-          <Slider
-            type="multiple"
-            bind:value={frequencyRange}
-            min={0}
-            max={100}
-            step={1}
-            class="max-w-md"
-          />
-          <p class="text-xs text-muted-foreground">
-            Range: {frequencyMin}% to {frequencyMax}% ({inRangeCount} products)
-          </p>
-        </div>
-      </Card.Content>
-      <Card.Footer>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onclick={clearFilters}
-        >
-          Clear filters
-        </Button>
-      </Card.Footer>
-    </Card.Root>
-
-    {#if selectedCount > 0}
-      <Card.Root>
+  {#if hasAnyProducts}
+    <div class={`grid gap-6 ${selectedCount > 0 ? "lg:grid-cols-2 lg:items-start" : ""}`}>
+      <Card.Root class={selectedCount > 0 ? "w-full" : "w-full lg:w-1/2"}>
         <Card.Header>
-          <Card.Title>Bulk add to list</Card.Title>
+          <Card.Title>Filters</Card.Title>
           <Card.Description>
-            {selectedCount} selected product{selectedCount > 1 ? "s" : ""}.
+            Filter by time window, title and frequency. Results update while you
+            type.
           </Card.Description>
         </Card.Header>
-        <Card.Content>
-          <form
-            method="POST"
-            action="?/addSelectionToList"
-            class="grid gap-2 sm:grid-cols-2 sm:items-end"
-          >
-            <input
-              type="hidden"
-              name="selectedItems"
-              value={selectedItemsPayload}
-            />
-
-            <div class="grid gap-1">
-              <label class="text-xs font-medium" for="bulk-list-id"
-                >Target list</label
-              >
-              <select
-                id="bulk-list-id"
-                name="listId"
-                class="h-9 rounded-md border border-input bg-background px-2 text-sm"
-              >
-                <option value="">Select list</option>
-                {#each data.lists as list (list.id)}
-                  <option value={list.id}>{list.name}</option>
-                {/each}
-              </select>
-            </div>
-
-            <div class="grid gap-1">
-              <label class="text-xs font-medium" for="bulk-new-list"
-                >or create list</label
-              >
-              <Input
-                id="bulk-new-list"
-                name="newListName"
-                placeholder="New list name"
-                class="h-9"
-              />
-            </div>
-
-            <Button
-              type="submit"
-              size="sm"
-              class="sm:col-span-2 sm:justify-self-start"
+        <Card.Content class="grid gap-4">
+          <div class="grid gap-2">
+            <label class="text-sm font-medium" for="products-time-window"
+              >Period</label
             >
-              Add to list
-            </Button>
-          </form>
+            <select
+              id="products-time-window"
+              class="h-9 rounded-md border border-input bg-background px-2 text-sm"
+              bind:value={timeWindow}
+            >
+              {#each timeWindowOptions as option (option.key)}
+                <option value={option.key}>{option.label}</option>
+              {/each}
+            </select>
+          </div>
+
+          <div class="grid gap-2">
+            <label class="text-sm font-medium" for="products-title-filter"
+              >Title</label
+            >
+            <Input
+              id="products-title-filter"
+              placeholder="Search products..."
+              bind:value={titleFilter}
+            />
+          </div>
+
+          <div class="grid gap-2">
+            <p class="text-sm font-medium">Frequency</p>
+            <Slider
+              type="multiple"
+              bind:value={frequencyRange}
+              min={0}
+              max={100}
+              step={1}
+              class="max-w-md"
+            />
+            <p class="text-xs text-muted-foreground">
+              Range: {frequencyMin}% to {frequencyMax}% ({inRangeCount} products)
+            </p>
+          </div>
         </Card.Content>
+        <Card.Footer>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onclick={clearFilters}
+          >
+            Clear filters
+          </Button>
+        </Card.Footer>
       </Card.Root>
-    {/if}
+
+      {#if selectedCount > 0}
+        <Card.Root class="w-full">
+          <Card.Header>
+            <Card.Title>Bulk add to list</Card.Title>
+            <Card.Description>
+              {selectedCount} selected product{selectedCount > 1 ? "s" : ""}.
+            </Card.Description>
+          </Card.Header>
+          <Card.Content>
+            <form method="POST" action="?/addSelectionToList" class="grid gap-3">
+              <input
+                type="hidden"
+                name="selectedItems"
+                value={selectedItemsPayload}
+              />
+
+              <div class="grid gap-1">
+                <label class="text-xs font-medium" for="bulk-list-id"
+                  >Target list</label
+                >
+                <select
+                  id="bulk-list-id"
+                  name="listId"
+                  class="h-9 rounded-md border border-input bg-background px-2 text-sm"
+                  bind:value={bulkListId}
+                >
+                  <option value="">Select list</option>
+                  {#each data.lists as list (list.id)}
+                    <option value={list.id}>{list.name}</option>
+                  {/each}
+                </select>
+              </div>
+
+              <div class="grid gap-1">
+                <label class="text-xs font-medium" for="bulk-new-list"
+                  >or create list</label
+                >
+                <Input
+                  id="bulk-new-list"
+                  name="newListName"
+                  placeholder="New list name"
+                  class="h-9"
+                  bind:value={bulkNewListName}
+                />
+              </div>
+
+              <Button type="submit" size="sm" class="justify-self-start">
+                Add to list
+              </Button>
+            </form>
+          </Card.Content>
+        </Card.Root>
+      {/if}
+    </div>
 
     <div class="rounded-md border overflow-hidden">
       <div
@@ -535,34 +616,42 @@
           </Table.Header>
 
           <Table.Body>
-            {#each paginatedRows as row (row.id)}
-              {@const rowKey = getProductKey(row.original)}
-              <Table.Row
-                class={`border-b ${selectedKeys.includes(rowKey) ? "bg-muted/40" : ""}`}
-              >
-                <Table.Cell
-                  class="px-2 py-2 text-center"
-                  style={`width: ${selectionColumnWidth}px; min-width: ${selectionColumnWidth}px; max-width: ${selectionColumnWidth}px;`}
-                >
-                  <Checkbox
-                    checked={selectedKeys.includes(rowKey)}
-                    onCheckedChange={(checked) =>
-                      toggleRowSelection(row.original, checked === true)}
-                  />
+            {#if paginatedRows.length === 0}
+              <Table.Row class="border-b">
+                <Table.Cell class="px-3 py-6 text-center text-sm text-muted-foreground" colspan={columns.length + 1}>
+                  No products match the selected period and filters.
                 </Table.Cell>
-
-                {#each row.getVisibleCells() as cell (cell.id)}
+              </Table.Row>
+            {:else}
+              {#each paginatedRows as row (row.id)}
+                {@const rowKey = getProductKey(row.original)}
+                <Table.Row
+                  class={`border-b ${selectedKeys.includes(rowKey) ? "bg-muted/40" : ""}`}
+                >
                   <Table.Cell
-                    class={`truncate px-2 py-2 ${getColumnWidthClass(cell.column.id)} ${cell.column.id === "suggestedQuantity" || cell.column.id === "latestAmount" ? "text-right" : "text-left"}`}
+                    class="px-2 py-2 text-center"
+                    style={`width: ${selectionColumnWidth}px; min-width: ${selectionColumnWidth}px; max-width: ${selectionColumnWidth}px;`}
                   >
-                    <FlexRender
-                      content={cell.column.columnDef.cell}
-                      context={cell.getContext()}
+                    <Checkbox
+                      checked={selectedKeys.includes(rowKey)}
+                      onCheckedChange={(checked) =>
+                        toggleRowSelection(row.original, checked === true)}
                     />
                   </Table.Cell>
-                {/each}
-              </Table.Row>
-            {/each}
+
+                  {#each row.getVisibleCells() as cell (cell.id)}
+                    <Table.Cell
+                      class={`truncate px-2 py-2 ${getColumnWidthClass(cell.column.id)} ${cell.column.id === "suggestedQuantity" || cell.column.id === "latestAmount" ? "text-right" : "text-left"}`}
+                    >
+                      <FlexRender
+                        content={cell.column.columnDef.cell}
+                        context={cell.getContext()}
+                      />
+                    </Table.Cell>
+                  {/each}
+                </Table.Row>
+              {/each}
+            {/if}
           </Table.Body>
         </Table.Root>
       </div>
