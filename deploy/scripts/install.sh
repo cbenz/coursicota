@@ -20,6 +20,10 @@ NGINX_AVAILABLE="/etc/nginx/sites-available/${APP_NAME}.conf"
 NGINX_ENABLED="/etc/nginx/sites-enabled/${APP_NAME}.conf"
 BASIC_AUTH_FILE="/etc/nginx/.htpasswd-${APP_NAME}"
 ACME_WEBROOT="/var/www/certbot"
+SELF_RESTART_COUNT="${_INSTALL_SELF_RESTART_COUNT:-0}"
+REPO_WAS_PRESENT="0"
+SCRIPT_HASH_BEFORE=""
+ORIGINAL_ARGS=("$@")
 
 require_root() {
   if [[ ${EUID} -ne 0 ]]; then
@@ -98,14 +102,49 @@ clone_or_update_repository() {
   install -d -o "${APP_USER}" -g "${APP_USER}" "$(dirname "${INSTALL_DIR}")"
 
   if [[ ! -d "${INSTALL_DIR}/.git" ]]; then
+    REPO_WAS_PRESENT="0"
     runuser -u "${APP_USER}" -- git clone --branch "${REPO_BRANCH}" "${REPO_URL}" "${INSTALL_DIR}"
   else
+    REPO_WAS_PRESENT="1"
+    if [[ -f "${INSTALL_DIR}/deploy/scripts/install.sh" ]]; then
+      SCRIPT_HASH_BEFORE="$(sha256sum "${INSTALL_DIR}/deploy/scripts/install.sh" | awk '{print $1}')"
+    fi
     runuser -u "${APP_USER}" -- git -C "${INSTALL_DIR}" fetch --prune origin
     runuser -u "${APP_USER}" -- git -C "${INSTALL_DIR}" checkout "${REPO_BRANCH}"
     runuser -u "${APP_USER}" -- git -C "${INSTALL_DIR}" pull --ff-only origin "${REPO_BRANCH}"
   fi
 
   chown -R "${APP_USER}:${APP_USER}" "${INSTALL_DIR}"
+}
+
+restart_with_updated_installer_if_needed() {
+  if [[ "${REPO_WAS_PRESENT}" != "1" ]]; then
+    return
+  fi
+
+  local updated_script="${INSTALL_DIR}/deploy/scripts/install.sh"
+  local script_hash_after=""
+
+  if [[ -f "${updated_script}" ]]; then
+    script_hash_after="$(sha256sum "${updated_script}" | awk '{print $1}')"
+  fi
+
+  if [[ -z "${SCRIPT_HASH_BEFORE}" || "${SCRIPT_HASH_BEFORE}" == "${script_hash_after}" ]]; then
+    return
+  fi
+
+  if (( SELF_RESTART_COUNT >= 1 )); then
+    echo "Installer changed after update, but restart was already attempted once. Aborting to avoid a restart loop." >&2
+    exit 1
+  fi
+
+  if ! bash -n "${updated_script}"; then
+    echo "Updated installer has invalid shell syntax. Aborting." >&2
+    exit 1
+  fi
+
+  echo "Installer changed after repository update. Restarting with updated version." >&2
+  exec env _INSTALL_SELF_RESTART_COUNT="$((SELF_RESTART_COUNT + 1))" "${updated_script}" "${ORIGINAL_ARGS[@]}"
 }
 
 ensure_runtime_directories() {
@@ -180,6 +219,7 @@ main() {
   ensure_pnpm
   detect_repo_defaults
   clone_or_update_repository
+  restart_with_updated_installer_if_needed
   ensure_runtime_directories
   install_service
   install_basic_auth_file

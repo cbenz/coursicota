@@ -152,6 +152,7 @@ Les tables présentant des entités métier ont des propriétés communes :
 - Le projet fournit un sous-répertoire `deploy/` versionné dans Git.
 - Le script d'installation du dépôt crée l'utilisateur Unix dédié, installe les paquets Debian nécessaires, clone ou met à jour le dépôt Git sur le serveur, déploie les unités systemd et configure nginx comme reverse proxy.
 - Si le service systemd est déjà actif, le script d'installation le redémarre explicitement après le build pour charger les nouveaux artefacts.
+- Après la mise à jour Git, si le fichier `deploy/scripts/install.sh` a changé, le script se relance automatiquement une seule fois avec la version mise à jour avant de poursuivre le déploiement.
 - Les unités systemd de production appliquent un redémarrage agressif: délai de relance court (`RestartSec=1`) et délai d'arrêt réduit (`TimeoutStopSec=10s`).
 - Le script d'installation peut être exécuté depuis une simple copie du fichier (par exemple via `scp`) sans checkout local préalable.
 - Si `REPO_URL` n'est pas fourni et qu'aucune métadonnée Git locale n'est disponible, le script utilise `https://github.com/cbenz/coursicota`.
