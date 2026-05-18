@@ -134,6 +134,7 @@ Les tables présentant des entités métier ont des propriétés communes :
 - Le déploiement web de production impose HTTPS avec certificat Let's Encrypt, obtenu automatiquement pendant l'installation via `certbot`.
 - L'accès applicatif via nginx est protégé par Basic Auth.
 - Le chemin `/mcp` du domaine public est aussi protégé par le même Basic Auth et reverse-proxyé vers le serveur MCP local.
+- Le reverse proxy nginx du chemin `/mcp` transmet un en-tête `Host` loopback au backend MCP local, afin de rester compatible avec la validation d'hôte du transport HTTP MCP.
 - Le script lit les variables de déploiement suivantes:
   - `DOMAIN` (requis): nom de domaine public pointant vers le serveur
   - `LETSENCRYPT_EMAIL` (requis): e-mail de contact Let's Encrypt
