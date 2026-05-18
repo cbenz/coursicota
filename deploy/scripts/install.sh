@@ -8,11 +8,17 @@ SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 INSTALL_DIR="${INSTALL_DIR:-${APP_HOME}/apps/${APP_NAME}}"
 REPO_URL="${REPO_URL:-}"
 REPO_BRANCH="${REPO_BRANCH:-}"
+DOMAIN="${DOMAIN:-}"
+LETSENCRYPT_EMAIL="${LETSENCRYPT_EMAIL:-}"
+BASIC_AUTH_USER="${BASIC_AUTH_USER:-}"
+BASIC_AUTH_PASSWORD="${BASIC_AUTH_PASSWORD:-}"
 ENV_DIR="${ENV_DIR:-${APP_HOME}/etc}"
 DATA_DIR="${DATA_DIR:-${APP_HOME}/data}"
 SERVICE_FILE="/etc/systemd/system/${APP_NAME}.service"
 NGINX_AVAILABLE="/etc/nginx/sites-available/${APP_NAME}.conf"
 NGINX_ENABLED="/etc/nginx/sites-enabled/${APP_NAME}.conf"
+BASIC_AUTH_FILE="/etc/nginx/.htpasswd-${APP_NAME}"
+ACME_WEBROOT="/var/www/certbot"
 
 require_root() {
   if [[ ${EUID} -ne 0 ]]; then
@@ -30,7 +36,29 @@ ensure_user() {
 ensure_prerequisites() {
   export DEBIAN_FRONTEND=noninteractive
   apt-get update
-  apt-get install -y ca-certificates curl git nginx nodejs npm python3 build-essential pkg-config
+  apt-get install -y ca-certificates curl git nginx certbot apache2-utils nodejs npm python3 build-essential pkg-config
+}
+
+require_deploy_inputs() {
+  if [[ -z "${DOMAIN}" ]]; then
+    echo "Missing DOMAIN. Example: DOMAIN=app.example.com" >&2
+    exit 1
+  fi
+
+  if [[ -z "${LETSENCRYPT_EMAIL}" ]]; then
+    echo "Missing LETSENCRYPT_EMAIL. Example: LETSENCRYPT_EMAIL=admin@example.com" >&2
+    exit 1
+  fi
+
+  if [[ -z "${BASIC_AUTH_USER}" ]]; then
+    echo "Missing BASIC_AUTH_USER. Example: BASIC_AUTH_USER=admin" >&2
+    exit 1
+  fi
+
+  if [[ -z "${BASIC_AUTH_PASSWORD}" ]]; then
+    echo "Missing BASIC_AUTH_PASSWORD." >&2
+    exit 1
+  fi
 }
 
 ensure_pnpm() {
@@ -52,13 +80,12 @@ detect_repo_defaults() {
     REPO_URL="$(git -C "${SOURCE_DIR}" config --get remote.origin.url || true)"
   fi
 
-  if [[ -z "${REPO_BRANCH}" ]]; then
-    REPO_BRANCH="$(git -C "${SOURCE_DIR}" rev-parse --abbrev-ref HEAD || true)"
+  if [[ -z "${REPO_URL}" ]]; then
+    REPO_URL="https://github.com/cbenz/coursicota"
   fi
 
-  if [[ -z "${REPO_URL}" ]]; then
-    echo "Unable to detect repository URL. Set REPO_URL before running this installer." >&2
-    exit 1
+  if [[ -z "${REPO_BRANCH}" ]]; then
+    REPO_BRANCH="$(git -C "${SOURCE_DIR}" rev-parse --abbrev-ref HEAD || true)"
   fi
 
   if [[ -z "${REPO_BRANCH}" || "${REPO_BRANCH}" == "HEAD" ]]; then
@@ -97,10 +124,44 @@ install_service() {
   install -D -m 0644 "${INSTALL_DIR}/deploy/systemd/${APP_NAME}.service" "${SERVICE_FILE}"
 }
 
-install_nginx_configuration() {
-  install -D -m 0644 "${INSTALL_DIR}/deploy/systemd/nginx.conf" "${NGINX_AVAILABLE}"
+render_nginx_template() {
+  local template_path="$1"
+  local output_path="$2"
+  sed \
+    -e "s|__DOMAIN__|${DOMAIN}|g" \
+    -e "s|__BASIC_AUTH_FILE__|${BASIC_AUTH_FILE}|g" \
+    "${template_path}" > "${output_path}"
+}
+
+install_basic_auth_file() {
+  htpasswd -bc "${BASIC_AUTH_FILE}" "${BASIC_AUTH_USER}" "${BASIC_AUTH_PASSWORD}"
+  chmod 0640 "${BASIC_AUTH_FILE}"
+  chown root:www-data "${BASIC_AUTH_FILE}"
+}
+
+install_nginx_bootstrap_configuration() {
+  install -d -m 0755 "${ACME_WEBROOT}"
+  render_nginx_template "${INSTALL_DIR}/deploy/systemd/nginx-bootstrap.conf" "${NGINX_AVAILABLE}"
   ln -sfn "${NGINX_AVAILABLE}" "${NGINX_ENABLED}"
   rm -f /etc/nginx/sites-enabled/default
+  nginx -t
+  systemctl enable --now nginx
+  systemctl reload nginx
+}
+
+request_lets_encrypt_certificate() {
+  certbot certonly \
+    --non-interactive \
+    --agree-tos \
+    --keep-until-expiring \
+    --email "${LETSENCRYPT_EMAIL}" \
+    --webroot \
+    -w "${ACME_WEBROOT}" \
+    -d "${DOMAIN}"
+}
+
+install_nginx_final_configuration() {
+  render_nginx_template "${INSTALL_DIR}/deploy/systemd/nginx.conf" "${NGINX_AVAILABLE}"
   nginx -t
 }
 
@@ -111,6 +172,7 @@ build_application() {
 
 main() {
   require_root
+  require_deploy_inputs
   ensure_prerequisites
   ensure_user
   ensure_pnpm
@@ -118,11 +180,13 @@ main() {
   clone_or_update_repository
   ensure_runtime_directories
   install_service
-  install_nginx_configuration
+  install_basic_auth_file
+  install_nginx_bootstrap_configuration
+  request_lets_encrypt_certificate
+  install_nginx_final_configuration
   systemctl daemon-reload
   build_application
   systemctl enable --now "${APP_NAME}"
-  systemctl enable --now nginx
   systemctl reload nginx
 }
 

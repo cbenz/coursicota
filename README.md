@@ -50,6 +50,15 @@ pnpm install
 ```
 
 Pour un déploiement Debian, le dépôt fournit aussi `deploy/scripts/install.sh`, qui crée l'utilisateur Unix dédié, installe les paquets système requis, clone ou met à jour le dépôt sur le serveur, configure nginx et enregistre les services systemd.
+Le script peut être copié et exécuté hors d'un checkout local ; si `REPO_URL` n'est pas fourni et qu'aucune métadonnée Git locale n'est disponible, il utilise `https://github.com/cbenz/coursicota` (branche `main` si non détectée).
+Le déploiement web est configuré en HTTPS avec certificat Let's Encrypt et protégé par Basic Auth.
+
+Variables nécessaires avant lancement du script d'installation :
+
+- `DOMAIN` (exemple : `app.example.com`)
+- `LETSENCRYPT_EMAIL` (exemple : `admin@example.com`)
+- `BASIC_AUTH_USER`
+- `BASIC_AUTH_PASSWORD`
 
 ## Démarrer l'interface web
 

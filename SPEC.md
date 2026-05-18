@@ -128,4 +128,14 @@ Les tables présentant des entités métier ont des propriétés communes :
 
 - Le projet fournit un sous-répertoire `deploy/` versionné dans Git.
 - Le script d'installation du dépôt crée l'utilisateur Unix dédié, installe les paquets Debian nécessaires, clone ou met à jour le dépôt Git sur le serveur, déploie les unités systemd et configure nginx comme reverse proxy.
+- Le script d'installation peut être exécuté depuis une simple copie du fichier (par exemple via `scp`) sans checkout local préalable.
+- Si `REPO_URL` n'est pas fourni et qu'aucune métadonnée Git locale n'est disponible, le script utilise `https://github.com/cbenz/coursicota`.
+- Si `REPO_BRANCH` n'est pas fourni et ne peut pas être détecté, le script utilise `main`.
+- Le déploiement web de production impose HTTPS avec certificat Let's Encrypt, obtenu automatiquement pendant l'installation via `certbot`.
+- L'accès applicatif via nginx est protégé par Basic Auth.
+- Le script lit les variables de déploiement suivantes:
+  - `DOMAIN` (requis): nom de domaine public pointant vers le serveur
+  - `LETSENCRYPT_EMAIL` (requis): e-mail de contact Let's Encrypt
+  - `BASIC_AUTH_USER` (requis): identifiant Basic Auth
+  - `BASIC_AUTH_PASSWORD` (requis): mot de passe Basic Auth
 - L'application Node.js de production démarre depuis le répertoire `build` du checkout serveur.
