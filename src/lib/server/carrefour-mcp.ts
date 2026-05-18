@@ -20,6 +20,17 @@ export function getMcpServerUrl(): string {
   );
 }
 
+function getMcpServerAuthHeader(): string | undefined {
+  const user = privateEnv.CARREFOUR_MCP_BASIC_AUTH_USER;
+  const password = privateEnv.CARREFOUR_MCP_BASIC_AUTH_PASSWORD;
+
+  if (!user || !password) {
+    return undefined;
+  }
+
+  return `Basic ${Buffer.from(`${user}:${password}`).toString("base64")}`;
+}
+
 type JsonRpcToolSuccess<T> = {
   result?: {
     structuredContent?: T;
@@ -73,6 +84,9 @@ async function callMcpTool<T>(
         Accept: "application/json, text/event-stream",
         "Content-Type": "application/json",
         "MCP-Protocol-Version": MCP_PROTOCOL_VERSION,
+        ...(getMcpServerAuthHeader()
+          ? { Authorization: getMcpServerAuthHeader() }
+          : {}),
       },
       body: JSON.stringify({
         jsonrpc: "2.0",

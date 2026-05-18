@@ -133,9 +133,11 @@ Les tables présentant des entités métier ont des propriétés communes :
 - Si `REPO_BRANCH` n'est pas fourni et ne peut pas être détecté, le script utilise `main`.
 - Le déploiement web de production impose HTTPS avec certificat Let's Encrypt, obtenu automatiquement pendant l'installation via `certbot`.
 - L'accès applicatif via nginx est protégé par Basic Auth.
+- Le chemin `/mcp` du domaine public est aussi protégé par le même Basic Auth et reverse-proxyé vers le serveur MCP local.
 - Le script lit les variables de déploiement suivantes:
   - `DOMAIN` (requis): nom de domaine public pointant vers le serveur
   - `LETSENCRYPT_EMAIL` (requis): e-mail de contact Let's Encrypt
   - `BASIC_AUTH_USER` (requis): identifiant Basic Auth
   - `BASIC_AUTH_PASSWORD` (requis): mot de passe Basic Auth
+- L'application web de production appelle le serveur MCP via l'URL publique `https://<DOMAIN>/mcp` et réutilise les mêmes identifiants Basic Auth via `CARREFOUR_MCP_BASIC_AUTH_USER` et `CARREFOUR_MCP_BASIC_AUTH_PASSWORD`.
 - L'application Node.js de production démarre depuis le répertoire `build` du checkout serveur.

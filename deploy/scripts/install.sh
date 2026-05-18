@@ -110,14 +110,14 @@ clone_or_update_repository() {
 ensure_runtime_directories() {
   install -d -o "${APP_USER}" -g "${APP_USER}" "${ENV_DIR}" "${DATA_DIR}"
 
-  if [[ ! -f "${ENV_DIR}/${APP_NAME}.env" ]]; then
-    cat > "${ENV_DIR}/${APP_NAME}.env" <<EOF
+  cat > "${ENV_DIR}/${APP_NAME}.env" <<EOF
 PORT=3001
-CARREFOUR_MCP_SERVER_URL=http://127.0.0.1:3000/mcp
+CARREFOUR_MCP_SERVER_URL=https://${DOMAIN}/mcp
+CARREFOUR_MCP_BASIC_AUTH_USER=${BASIC_AUTH_USER}
+CARREFOUR_MCP_BASIC_AUTH_PASSWORD=${BASIC_AUTH_PASSWORD}
 EOF
-    chown "${APP_USER}:${APP_USER}" "${ENV_DIR}/${APP_NAME}.env"
-    chmod 0640 "${ENV_DIR}/${APP_NAME}.env"
-  fi
+  chown "${APP_USER}:${APP_USER}" "${ENV_DIR}/${APP_NAME}.env"
+  chmod 0640 "${ENV_DIR}/${APP_NAME}.env"
 }
 
 install_service() {
