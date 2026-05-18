@@ -74,6 +74,28 @@
       showStatusColumn={false}
       showAddToListAction={false}
     />
+
+    <form method="POST" action="?/addToCart">
+      <Button type="submit" variant="default">Add to Carrefour cart</Button>
+    </form>
+
+    {#if form?.cartResult}
+      <Alert variant={form.cartResult.failed > 0 ? "destructive" : "default"}>
+        <AlertTitle>
+          {form.cartResult.added} added, {form.cartResult.failed} failed
+        </AlertTitle>
+        <AlertDescription>
+          <a
+            href={form.cartResult.cartUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            class="underline underline-offset-4"
+          >
+            Open cart on carrefour.fr
+          </a>
+        </AlertDescription>
+      </Alert>
+    {/if}
   {:else}
     <Alert>
       <AlertTitle>List is empty</AlertTitle>

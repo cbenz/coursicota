@@ -143,3 +143,26 @@ export function getRemoteOrderDetails(orderRef: string): Promise<OrderDetails> {
     orderRef,
   });
 }
+
+export type CartItem = {
+  name: string;
+  productId?: string;
+  productUrl: string;
+  quantity?: number;
+};
+
+export type AddToCartResult = {
+  added: number;
+  failed: number;
+  cartUrl: string;
+  results: Array<{
+    name: string;
+    productUrl: string;
+    success: boolean;
+    message?: string;
+  }>;
+};
+
+export function addToCart(items: CartItem[]): Promise<AddToCartResult> {
+  return callMcpTool<AddToCartResult>("add_to_cart", { items });
+}

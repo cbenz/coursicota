@@ -1,7 +1,6 @@
 <script lang="ts">
   import type { ColumnDef, SortingState } from "@tanstack/table-core";
   import { getCoreRowModel, getSortedRowModel } from "@tanstack/table-core";
-  import { createVirtualizer } from "@tanstack/svelte-virtual";
   import AddToListCell from "$lib/components/AddToListCell.svelte";
   import ProductHoverCardLink from "$lib/components/ProductHoverCardLink.svelte";
   import SortableHeaderButton from "$lib/components/SortableHeaderButton.svelte";
@@ -25,13 +24,13 @@
   import { createRawSnippet } from "svelte";
 
   let { data, form } = $props();
-  let tableContainer = $state<HTMLDivElement | null>(null);
 
   type ProductRow = (typeof data.products)[0];
 
   let sorting = $state<SortingState>([]);
   let selectedKeys = $state<string[]>([]);
   let frequencyRange = $state([10, 70]);
+  let pageSize = $state(50);
 
   const selectionColumnWidth = 52;
 
@@ -279,42 +278,15 @@
     }
   });
 
-  const rowVirtualizer = createVirtualizer<HTMLDivElement, HTMLDivElement>({
-    count: 0,
-    getScrollElement: () => tableContainer,
-    estimateSize: () => 56,
-    overscan: 10,
-  });
-
-  let previousVirtualCount = $state(-1);
-  let previousEnabledState = $state(false);
+  let currentPage = $state(0);
+  const totalPages = $derived(Math.max(1, Math.ceil(rows.length / pageSize)));
+  const paginatedRows = $derived(rows.slice(currentPage * pageSize, (currentPage + 1) * pageSize));
 
   $effect(() => {
-    const nextCount = rows.length;
-    const scrollElement = tableContainer;
-    const nextEnabled = !!scrollElement;
-
-    if (
-      nextCount === previousVirtualCount &&
-      nextEnabled === previousEnabledState
-    ) {
-      return;
-    }
-
-    previousVirtualCount = nextCount;
-    previousEnabledState = nextEnabled;
-
-    $rowVirtualizer.setOptions({
-      count: nextCount,
-      enabled: nextEnabled,
-      getScrollElement: () => scrollElement,
-      estimateSize: () => 56,
-      overscan: 10,
-    });
+    // Reset to first page when rows change (e.g. sorting)
+    void rows;
+    currentPage = 0;
   });
-
-  const virtualRows = $derived($rowVirtualizer.getVirtualItems());
-  const totalSize = $derived($rowVirtualizer.getTotalSize());
 </script>
 
 <svelte:head>
@@ -431,18 +403,17 @@
         </Table.Header>
       </Table.Root>
 
-      <div bind:this={tableContainer} class="max-h-[70vh] overflow-auto">
+      <div class="overflow-auto">
         <Table.Root class="w-max min-w-full">
           <Table.Body
-            class="relative block"
-            style={`position: relative; display: block; height: ${totalSize}px; width: ${totalColumnWidth}px; min-width: 100%;`}
+            class="block"
+            style={`display: block; width: ${totalColumnWidth}px; min-width: 100%;`}
           >
-            {#each virtualRows as virtualRow (virtualRow.key)}
-              {@const row = rows[virtualRow.index]}
+            {#each paginatedRows as row (row.id)}
               {@const rowKey = getProductKey(row.original)}
               <Table.Row
-                class={`absolute left-0 top-0 z-0 border-b ${selectedKeys.includes(rowKey) ? "bg-muted/40" : ""}`}
-                style={`display: flex; width: ${totalColumnWidth}px; min-width: 100%; transform: translateY(${virtualRow.start}px);`}
+                class={`border-b ${selectedKeys.includes(rowKey) ? "bg-muted/40" : ""}`}
+                style={`display: flex; width: ${totalColumnWidth}px; min-width: 100%;`}
               >
                 <Table.Cell
                   class="px-2 py-2 text-center"
@@ -469,6 +440,30 @@
             {/each}
           </Table.Body>
         </Table.Root>
+      </div>
+
+      <div class="flex items-center justify-between border-t pt-3">
+        <p class="text-sm text-muted-foreground">
+          {rows.length} products — page {currentPage + 1} / {totalPages}
+        </p>
+        <div class="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onclick={() => { currentPage = Math.max(0, currentPage - 1); }}
+            disabled={currentPage === 0}
+          >
+            Previous
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onclick={() => { currentPage = Math.min(totalPages - 1, currentPage + 1); }}
+            disabled={currentPage >= totalPages - 1}
+          >
+            Next
+          </Button>
+        </div>
       </div>
     </div>
   {:else}

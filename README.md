@@ -19,48 +19,6 @@
 - propose des états visuels explicites (erreur, succès, état vide) pour chaque action importante
 - affiche la progression de synchronisation en temps réel dans `Sync` (étape en cours, commandes traitées, statut final)
 
-## Architecture
-
-```mermaid
-graph TB
-    subgraph "Coursicota UI"
-        UI["Coursicota Web Interface<br/>SvelteKit + shadcn-svelte"]
-    end
-
-    subgraph "Local Storage"
-        SQLITE["SQLite Database<br/>Orders, Products, Metadata"]
-        JSON["JSON Files<br/>Lists"]
-    end
-
-    subgraph "External Services"
-        CARREFOUR_MCP["carrefour-mcp<br/>HTTP API<br/>:3000/mcp"]
-        CDP["Chrome/Chromium<br/>CDP :9222"]
-    end
-
-    subgraph "Scripts"
-        SYNC_ORDERS["sync:orders<br/>Fetch Commands"]
-        BASKET["compute:standard-basket<br/>Calculate Basket"]
-    end
-
-    subgraph "Sync Workflow: Run sync clicked"
-        UI -->|"1. Click Run Sync"| SYNC_ORDERS
-        SYNC_ORDERS -->|"2. list_orders"| CARREFOUR_MCP
-        CARREFOUR_MCP -->|"3. Auth via CDP"| CDP
-        CARREFOUR_MCP -->|"4. Fetch from Carrefour.fr"| CDP
-        CARREFOUR_MCP -->|"5. Order details"| SYNC_ORDERS
-        SYNC_ORDERS -->|"6. Save orders & products"| SQLITE
-        SQLITE -->|"7. Update UI"| UI
-    end
-
-    UI --> SQLITE
-    UI --> JSON
-
-    BASKET --> JSON
-    BASKET --> SQLITE
-
-    CARREFOUR_MCP --> CDP
-```
-
 ## Prérequis
 
 - Node.js 20+
@@ -90,6 +48,8 @@ Dans `coursicota` :
 ```bash
 pnpm install
 ```
+
+Pour un déploiement Debian, le dépôt fournit aussi `deploy/scripts/install.sh`, qui crée l'utilisateur Unix dédié, installe les paquets système requis, clone ou met à jour le dépôt sur le serveur, configure nginx et enregistre les services systemd.
 
 ## Démarrer l'interface web
 
@@ -145,7 +105,7 @@ pnpm sync:orders 40
 - cocher les produits déjà pris
 - ouvrir directement les fiches produits Carrefour quand une URL produit est connue
 
-Les listes sont enregistrées localement dans `data/lists` au format JSON.
+Les listes sont enregistrées localement dans la base de données SQLite.
 
 ## Générer le panier standard
 

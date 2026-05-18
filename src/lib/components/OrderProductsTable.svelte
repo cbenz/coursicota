@@ -2,6 +2,7 @@
   import type { ColumnDef, SortingState } from "@tanstack/table-core";
   import { getCoreRowModel, getSortedRowModel } from "@tanstack/table-core";
   import AddToListCell from "$lib/components/AddToListCell.svelte";
+  import ProductHoverCardLink from "$lib/components/ProductHoverCardLink.svelte";
   import { formatCurrency } from "$lib/format";
   import OrderProductStatusBadge from "$lib/components/OrderProductStatusBadge.svelte";
   import SortableHeaderButton from "$lib/components/SortableHeaderButton.svelte";
@@ -54,19 +55,13 @@
           onclick: column.getToggleSortingHandler(),
           sorted: column.getIsSorted(),
         }),
-      cell: ({ row }) => {
-        const productSnippet = createRawSnippet(() => ({
-          render: () => {
-            let html = `<div><p class="font-medium">${row.original.name}</p>`;
-            if (row.original.url) {
-              html += `<a class="text-xs text-primary underline underline-offset-4" href="${row.original.url}" target="_blank" rel="noreferrer">Open Carrefour page</a>`;
-            }
-            html += "</div>";
-            return html;
-          },
-        }));
-        return renderSnippet(productSnippet);
-      },
+      cell: ({ row }) =>
+        renderComponent(ProductHoverCardLink, {
+          label: row.original.name,
+          productName: row.original.name,
+          productUrl: row.original.url,
+          productId: row.original.productId,
+        }),
     },
     {
       accessorKey: "quantity",

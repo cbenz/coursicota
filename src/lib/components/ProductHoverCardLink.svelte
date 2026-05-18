@@ -107,7 +107,6 @@
             src={imageUrl}
             alt={`Photo of ${productName}`}
             class="h-full w-full object-contain"
-            loading="lazy"
           />
         {:else}
           <span class="px-3 text-center text-xs text-muted-foreground">
