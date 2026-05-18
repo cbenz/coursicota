@@ -14,6 +14,7 @@ BASIC_AUTH_USER="${BASIC_AUTH_USER:-}"
 BASIC_AUTH_PASSWORD="${BASIC_AUTH_PASSWORD:-}"
 ENV_DIR="${ENV_DIR:-${APP_HOME}/etc}"
 DATA_DIR="${DATA_DIR:-${APP_HOME}/data}"
+APP_DATA_DIR="${DATA_DIR}/${APP_NAME}"
 SERVICE_FILE="/etc/systemd/system/${APP_NAME}.service"
 NGINX_AVAILABLE="/etc/nginx/sites-available/${APP_NAME}.conf"
 NGINX_ENABLED="/etc/nginx/sites-enabled/${APP_NAME}.conf"
@@ -108,10 +109,11 @@ clone_or_update_repository() {
 }
 
 ensure_runtime_directories() {
-  install -d -o "${APP_USER}" -g "${APP_USER}" "${ENV_DIR}" "${DATA_DIR}"
+  install -d -o "${APP_USER}" -g "${APP_USER}" "${ENV_DIR}" "${DATA_DIR}" "${APP_DATA_DIR}"
 
   cat > "${ENV_DIR}/${APP_NAME}.env" <<EOF
 PORT=3001
+COURSICOTA_DATA_DIR=${APP_DATA_DIR}
 CARREFOUR_MCP_SERVER_URL=https://${DOMAIN}/mcp
 CARREFOUR_MCP_BASIC_AUTH_USER=${BASIC_AUTH_USER}
 CARREFOUR_MCP_BASIC_AUTH_PASSWORD=${BASIC_AUTH_PASSWORD}
@@ -186,7 +188,8 @@ main() {
   install_nginx_final_configuration
   systemctl daemon-reload
   build_application
-  systemctl enable --now "${APP_NAME}"
+  systemctl enable "${APP_NAME}"
+  systemctl restart "${APP_NAME}"
   systemctl reload nginx
 }
 

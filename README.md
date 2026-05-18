@@ -60,8 +60,9 @@ Dans `coursicota` :
 pnpm install
 ```
 
-Pour un déploiement Debian, le dépôt fournit aussi `deploy/scripts/install.sh`, qui crée l'utilisateur Unix dédié, installe les paquets système requis, clone ou met à jour le dépôt sur le serveur, configure nginx et enregistre les services systemd.
+Pour un déploiement Debian, le dépôt fournit aussi `deploy/scripts/install.sh`, qui crée l'utilisateur Unix dédié, installe les paquets système requis, clone ou met à jour le dépôt sur le serveur, configure nginx et enregistre les services systemd, puis redémarre explicitement le service applicatif après build. Les units systemd déployées appliquent un profil de redémarrage agressif avec délai de relance court et timeout d'arrêt réduit.
 Le script peut être copié et exécuté hors d'un checkout local ; si `REPO_URL` n'est pas fourni et qu'aucune métadonnée Git locale n'est disponible, il utilise `https://github.com/cbenz/coursicota` (branche `main` si non détectée).
+Le script force le stockage des données SQLite dans un répertoire persistant hors artefacts de build (par défaut `/home/coursicota/data/coursicota`).
 Le déploiement web est configuré en HTTPS avec certificat Let's Encrypt et protégé par Basic Auth.
 Le chemin public `/mcp` réutilise le même Basic Auth pour les appels applicatifs.
 

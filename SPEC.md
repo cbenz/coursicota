@@ -43,6 +43,7 @@ Faire ses courses à Carrefour de façon simplifiée et éclairée, pour pallier
 ## Données locales
 
 - Une base SQLite locale stocke les commandes, leurs produits, les listes de courses et les métadonnées de synchronisation
+- En déploiement systemd, le stockage SQLite et les données associées doivent être persistés hors des artefacts de build, sous un répertoire dédié de données applicatives (par défaut `/home/coursicota/data/coursicota`)
 
 ## Navigation
 
@@ -150,6 +151,8 @@ Les tables présentant des entités métier ont des propriétés communes :
 
 - Le projet fournit un sous-répertoire `deploy/` versionné dans Git.
 - Le script d'installation du dépôt crée l'utilisateur Unix dédié, installe les paquets Debian nécessaires, clone ou met à jour le dépôt Git sur le serveur, déploie les unités systemd et configure nginx comme reverse proxy.
+- Si le service systemd est déjà actif, le script d'installation le redémarre explicitement après le build pour charger les nouveaux artefacts.
+- Les unités systemd de production appliquent un redémarrage agressif: délai de relance court (`RestartSec=1`) et délai d'arrêt réduit (`TimeoutStopSec=10s`).
 - Le script d'installation peut être exécuté depuis une simple copie du fichier (par exemple via `scp`) sans checkout local préalable.
 - Si `REPO_URL` n'est pas fourni et qu'aucune métadonnée Git locale n'est disponible, le script utilise `https://github.com/cbenz/coursicota`.
 - Si `REPO_BRANCH` n'est pas fourni et ne peut pas être détecté, le script utilise `main`.
@@ -164,3 +167,4 @@ Les tables présentant des entités métier ont des propriétés communes :
   - `BASIC_AUTH_PASSWORD` (requis): mot de passe Basic Auth
 - L'application web de production appelle le serveur MCP via l'URL publique `https://<DOMAIN>/mcp` et réutilise les mêmes identifiants Basic Auth via `CARREFOUR_MCP_BASIC_AUTH_USER` et `CARREFOUR_MCP_BASIC_AUTH_PASSWORD`.
 - L'application Node.js de production démarre depuis le répertoire `build` du checkout serveur.
+- Le script d'installation force `COURSICOTA_DATA_DIR` vers un chemin persistant hors `build`.
